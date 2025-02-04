@@ -54,10 +54,13 @@ class Vessel:
         self._width = width
         self._length = length
 
+        # Modeling constants
         self._model_params = VesselParamters()
 
-        # Thruster params  TODO: The thruster logic should be seperated in its own module somehow
+        # Thruster constants
         self._thruster_params = ThrusterParams()
+
+        self._max_speed = 3
 
     @property
     def width(self) -> float:
@@ -97,8 +100,8 @@ class Vessel:
 
     @property
     def max_speed(self) -> float:
-        """Returns the maximum speed of the AUV."""
-        return 3
+        """Returns the maximum speed of the AUV. [m/s]"""
+        return self._max_speed
 
     @property
     def course(self) -> float:
@@ -152,8 +155,11 @@ class Vessel:
         return state_dot
 
 
-    def action_to_thrust(self, action):
-        """Simple linear trasformation from action to force."""
+    def action_to_thrust(self, action: np.ndarray):
+        """Simple linear trasformation from action to force. 
+
+        Action should be [-1,1]
+        """
         force = 0
         if action > 0:
             force = np.clip(action, -1, 1) * self._thruster_params.max_forward_force
@@ -178,14 +184,10 @@ class Vessel:
         self._state = solution.y[:,-1]
         self._state[2] = geom.princip(self._state[2])
 
-        print(self._prev_states)
-        print(self._state)
         self._prev_states = np.vstack([self._prev_states, self._state])
         self._prev_inputs = np.vstack([self._prev_inputs, self._input])
 
         self._step_counter += 1
-
-        # TODO: Store states?
 
     # TODO: Implement
     def perceive(self) -> np.ndarray:
@@ -197,6 +199,7 @@ class Vessel:
         """
         return NotImplemented
 
+# Test Vessel class
 if __name__ == '__main__':
     init_state = np.zeros((6,))
     # print(init_state)
