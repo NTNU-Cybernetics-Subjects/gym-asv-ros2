@@ -1,16 +1,15 @@
 from typing import NamedTuple
+
 import matplotlib.pyplot as plt
-
-
 import numpy as np
 import shapely
 from numpy import linalg
+from rich.traceback import install as install_rich_traceback
 from scipy.integrate import solve_ivp
 
 import gym_asv_ros2.utils.geom_utils as geom
 
-from rich.traceback import install
-install()
+install_rich_traceback()
 
 class VesselParamters(NamedTuple):
     """TODO:"""
@@ -33,6 +32,13 @@ class VesselParamters(NamedTuple):
     Y_r: float = -0.1  # Just a guess, making the sim more realistic when driving
     N_v: float = -0.1  # Just a guess, making the sim more realistic when driving
 
+class ThrusterParams(NamedTuple):
+
+    left_thrust_dissplacement: float = -0.285
+    right_arm_dissplacement: float = 0.285
+
+    max_forward_force: float = 55.21
+    max_backward_force: float = 27.56
 
 class Vessel:
     def __init__(self, init_state: np.ndarray, width: float, length: float) -> None:
@@ -51,10 +57,7 @@ class Vessel:
         self._model_params = VesselParamters()
 
         # Thruster params  TODO: The thruster logic should be seperated in its own module somehow
-        self._left_thrust_arm_dissplacment = 55.21
-        self._right_thrust_arm_dissplacment = 27.56
-        self._max_forward_force = -0.285
-        self._max_backward_force = 0.285
+        self._thruster_params = ThrusterParams()
 
     @property
     def width(self) -> float:
@@ -118,8 +121,8 @@ class Vessel:
 
         u1 = input[0]
         u2 = input[1]
-        l1 = self._left_thrust_arm_dissplacment
-        l2 = self._right_thrust_arm_dissplacment
+        l1 = self._thruster_params.left_thrust_dissplacement
+        l2 = self._thruster_params.right_arm_dissplacement
 
         # Model matrices TODO: force should be modeleded?
         tau = np.array([u1 + u2, 0, -l1 * u1 - l2 * u2]).T
@@ -153,9 +156,9 @@ class Vessel:
         """Simple linear trasformation from action to force."""
         force = 0
         if action > 0:
-            force = np.clip(action, -1, 1) * self._max_forward_force
+            force = np.clip(action, -1, 1) * self._thruster_params.max_forward_force
         if action < 0:
-            force = np.clip(action, -1, 1) * self._max_backward_force
+            force = np.clip(action, -1, 1) * self._thruster_params.max_backward_force
 
         return force
 
