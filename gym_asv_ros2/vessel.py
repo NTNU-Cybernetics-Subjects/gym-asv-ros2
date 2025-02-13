@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shapely
 from numpy import linalg
-from rich.traceback import install as install_rich_traceback
 from scipy.integrate import solve_ivp
 
 import gym_asv_ros2.utils.geom_utils as geom
 
+# TODO: Do not import this here
+from rich.traceback import install as install_rich_traceback
 install_rich_traceback()
 
 class VesselParamters(NamedTuple):
@@ -131,6 +132,7 @@ class Vessel:
     # Original shape
     @property
     def boundary(self) -> shapely.geometry.Polygon:
+        """Vessels shape defined keeping the CO in origo"""
         # defined as y,x ??
         vertices = [
             (-self.length/2, -self.width/2),
