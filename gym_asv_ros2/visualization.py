@@ -4,7 +4,7 @@ import pyglet
 import shapely.affinity
 import numpy as np
 # from gym_asv_ros2.obstacles import BaseObstacle
-from gym_asv_ros2.new_objects import BaseObstacle, CircularObstacle
+from gym_asv_ros2.obstacles import BaseObstacle, CircularObstacle
 from gym_asv_ros2.vessel import Vessel
 from gym_asv_ros2.simulator import Game
 # from pyglet.window import key
@@ -21,7 +21,6 @@ class visualizer:
         self.bg_sprite = None
 
         self.pixels_per_unit = self.window.width / 100
-        self.window_origo = (self.window.width / 2, self.window.height / 2)
 
         self.camera_position = np.array([0,0])
 
@@ -54,7 +53,7 @@ class visualizer:
     #     self.agent.rotation = -np.rad2deg(vessel.heading)
 
     def update_camerea_position(self, agent_position: np.ndarray):
-        """Updates the camera position, The coordinate defines the bottom left 'real world' location""" 
+        """Updates the camera position, The coordinate defines the center of the window.""" 
 
         # Following the agent by moving the camera oppiste of agents movement,
         # using the window offset to keep the agents position in the center for

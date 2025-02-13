@@ -19,6 +19,10 @@ class BaseObstacle:
         raise NotImplementedError
 
     @abstractmethod
+    def update_pyglet_position(self, camera_position) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def init_pyglet_shape(self, scale: int, batch: pyglet.graphics.Batch) -> None:
         raise NotImplementedError
 
@@ -49,7 +53,12 @@ class CircularObstacle(BaseObstacle):
             scaled_position[0], scaled_position[1], scaled_radius, batch=batch
         )
 
+    # TODO: Make an inteface to support dynamic obstacles.
+    def update(self):
+        pass
+
     def update_pyglet_position(self, camera_position: np.ndarray) -> None:
+        """Updates the pyglet shape according to a camera position."""
         screen_position = camera_position + self.position
         self._pyglet_shape.position = screen_position.tolist()
 
