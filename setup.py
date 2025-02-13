@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'gym-asv-ros2'
+package_name = 'gym_asv_ros2'
 
 setup(
     name=package_name,
@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', "gymnasium", "pyglet", ""],
     zip_safe=True,
     maintainer='hurodor',
     maintainer_email='hurodor@todo.todo',
