@@ -1,10 +1,10 @@
 from pynput import keyboard
-from pynput.keyboard import Key
+# from pynput.keyboard import Key
 import gymnasium as gym
 import numpy as np
 # from time import time
 
-class Game:
+class KeyboardListner:
     def __init__(self) -> None:
         # self.env = env
 
@@ -12,6 +12,8 @@ class Game:
 
         self.quit = False
         self.restart = False
+
+        self.listner = None
 
     def press(self, k):
         if k.char == "u":
@@ -45,7 +47,13 @@ class Game:
         if k.char == "k":
             self.action[1] = 0
 
-    def start_listner(self):
-        listner = keyboard.Listener(on_press=self.press, on_release=self.release)
-        listner.start()
+        print(self.action)
 
+    def start_listner(self):
+        self.listner = keyboard.Listener(on_press=self.press, on_release=self.release)
+        self.listner.start()
+
+if __name__ == "__main__":
+    g = KeyboardListner()
+    g.start_listner()
+    g.listner.join()
