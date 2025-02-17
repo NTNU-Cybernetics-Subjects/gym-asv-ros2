@@ -4,42 +4,64 @@ import shapely.affinity
 import numpy as np
 from abc import ABC, abstractmethod
 
-
 class BaseObstacle:
+
+    def __init__(self) -> None:
+        """Base attributes of a obstacle."""
+        self.position: np.ndarray
+        self.angle: float
+
+        self._boundary: shapely.Geometry
+        self._pyglet_shape: pyglet.shapes.ShapeBase
+
+
     @property
     def boundary(self) -> shapely.Geometry:
-        return NotImplemented
+        """The shape of obstacle represented as a shapely.Geometry object."""
+        return self._boundary
 
-    @abstractmethod
-    def update(self) -> None:
-        pass
 
     @property
     def pyglet_shape(self) -> pyglet.shapes.ShapeBase:
-        raise NotImplementedError
+        """The visual shape of the object used to draw it in pyglet."""
+        return self._pyglet_shape
+
 
     @abstractmethod
-    def update_pyglet_position(self, camera_position) -> None:
+    def init_boundary(self) -> None:
+        """Initializes the shape of the obstacle. Should be defined in subclasses."""
         raise NotImplementedError
 
     @abstractmethod
     def init_pyglet_shape(self, scale: int, batch: pyglet.graphics.Batch) -> None:
+        """Intialized the visual shape of the object. Should be defined in subclasses"""
         raise NotImplementedError
 
 
+    @abstractmethod
+    def update(self) -> None:
+        """Updates the obstacle if it is dynamic. Should be defined in
+        subclasses. If the funciton is not defined the obstacle is assumed
+        static."""
+        pass
+
+
+    def update_pyglet_position(self, camera_position: np.ndarray, scale: float) -> None:
+        """Updates the pyglet shape according to a camera position."""
+        screen_position = camera_position + ( self.position * scale)
+        self._pyglet_shape.position = screen_position.tolist()
+
+
 class CircularObstacle(BaseObstacle):
-    def __init__(self, position: np.ndarray, radius: float) -> None:
+    def __init__(self, position: np.ndarray, radius: float, color=(205, 197, 197)) -> None:
         self.position = position
         self.radius = radius
+        self.color = color
+
         self._boundary: shapely.geometry.LineString
         self.init_boundary()
 
         self._pyglet_shape: pyglet.shapes.Circle
-
-    @property
-    def boundary(self) -> shapely.geometry.LineString:
-        return self._boundary
-
 
     def init_boundary(self) -> None:
         full_circle = shapely.geometry.Point(*self.position).buffer(self.radius)
@@ -50,22 +72,36 @@ class CircularObstacle(BaseObstacle):
         scaled_position = self.position * scale
         scaled_radius = self.radius * scale
         self._pyglet_shape = pyglet.shapes.Circle(
-            scaled_position[0], scaled_position[1], scaled_radius, batch=batch
+            scaled_position[0], scaled_position[1], scaled_radius, batch=batch, color=self.color, 
         )
 
     # TODO: Make an inteface to support dynamic obstacles.
     def update(self):
         pass
 
-    def update_pyglet_position(self, camera_position: np.ndarray) -> None:
-        """Updates the pyglet shape according to a camera position."""
-        screen_position = camera_position + self.position
-        self._pyglet_shape.position = screen_position.tolist()
 
-    @property
-    def pyglet_shape(self) -> pyglet.shapes.Circle:
-        return self._pyglet_shape
+# class RectangularDock(BaseObstacle):
+#
+#     def __init__(self, position: np.ndarray, angle: float, width: float, length: float) -> None:
+#
+#         self.position = position
+#         self.angle = angle
+#         self.width = width
+#         self.length = length
+#
+#         # self._boundary: shapely.geometry.LinearRing
+#         self._pyglet_shape: pyglet.shapes.Circle
+#
+#
+#     def update(self) -> None:
+#         pass
+#
+#     def init_pyglet_shape(self, scale: int, batch: pyglet.graphics.Batch) -> None:
+#         scaled_position = self.position * scale
+#         scaled_radius = self.radius * scale
+
 
 
 if __name__ == "__main__":
-    c = CircularObstacle(np.array([0, 0]), 2)
+    pass
+    # c = CircularObstacle(np.array([0, 0]), 2)
