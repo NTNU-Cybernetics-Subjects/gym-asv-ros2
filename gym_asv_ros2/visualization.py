@@ -1,16 +1,21 @@
 from pathlib import Path
-# import time
+import time
 import pyglet
 import shapely.affinity
 import numpy as np
 # from gym_asv_ros2.obstacles import BaseObstacle
 from gym_asv_ros2.obstacles import BaseObstacle, CircularObstacle
 from gym_asv_ros2.vessel import Vessel
-from gym_asv_ros2.simulator import Game
+from gym_asv_ros2.manual_action_input import KeyboardListner
+# from gym_asv_ros2.simulator import Game
 # from pyglet.window import key
+#
 
+ROOT_DIR = Path(__file__).resolve().parent
+# BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
+BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
 
-class visualizer:
+class Visualizer:
     def __init__(self, window_width, window_height) -> None:
         self.window = pyglet.window.Window(window_width, window_height)
         self.batch = pyglet.graphics.Batch()
@@ -63,7 +68,7 @@ class visualizer:
         self.camera_position[0] = camera_x
         self.camera_position[1] = camera_y
 
-    def update_agent(self, agent_heading: float, agent_position: np.ndarray):
+    def update_agent(self, agent_position: np.ndarray, agent_heading: float):
         """Update the agent"""
 
         # xpos = self.camera_position[0] + (agent_position[0] * self.pixels_per_unit ) + self.window.width/2
@@ -98,54 +103,46 @@ class visualizer:
         
         self.bg_sprite.position = new_bg_pos
 
-
-    def add_obstacle(self, obstacle: BaseObstacle):
-        pass
-
-
     def update_screen(self):
         self.window.clear()
         self.batch.draw()
         self.window.flip()
 
+    def close(self):
+        self.window.close()
 
 if __name__ == "__main__":
-    v = visualizer(1000, 1000)
+    v = Visualizer(1000, 1000)
+
     vessel = Vessel(np.array([0, 0, 0, 0, 0, 0]), 1, 1)
+
     bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
+
     v.add_backround(bg_img_path)
     v.add_agent(vessel.boundary)
-    v.update_agent(vessel.heading, vessel.position)
-    
+    v.update_agent(vessel.position, vessel.heading)
+
     # Add obstacle:
-    obst = CircularObstacle(np.array([0,0]), 1)
+    obst = CircularObstacle(np.array([10,10]), 1, color=(27, 127,0))
     obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
 
-    game = Game()
-    game.start_listner()
+    listner = KeyboardListner()
+    listner.start_listner()
+    v.update_screen()
 
     t = 0
     while True:
-        if game.quit:
+        if listner.quit:
             break
 
-        vessel.step(game.action, 0.2)
+        vessel.step(listner.action, 0.2)
         v.update_camerea_position(vessel.position)
-        v.update_agent(vessel.heading, vessel.position)
+        v.update_agent(vessel.position, vessel.heading)
         v.update_background()
-        obst.update_pyglet_position(v.camera_position)
+        obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         # obst.update_pyglet_position(v.,vessel.position, v.pixels_per_unit)
         v.update_screen()
         t +=1
-        print(f"vessel position: {vessel.position}, obstacle_pos {obst.position}")
-        # print(vessel.position)
-        # print(v.camera_position)
+        print(f"vessel: {vessel.position}, obst: {obst.position}")
  
-    # print(vessel.position)
-    # print(v.agent.position)
-    #
-    # for i in range(100):
-    #     vessel.step(np.array([0.5, 0.2]), 1)
-    #     v.update_agent(vessel)
-    #     v.update_screen()
-    #     time.sleep(0.1)
+    v.close()
