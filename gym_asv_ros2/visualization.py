@@ -16,8 +16,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
-    def __init__(self, window_width, window_height) -> None:
-        self.window = pyglet.window.Window(window_width, window_height)
+    def __init__(self, window_width, window_height, headless=False) -> None:
+
+        self.window = pyglet.window.Window(window_width, window_height, visible=( not headless ))
         self.batch = pyglet.graphics.Batch()
 
         self.agent = None
