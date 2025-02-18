@@ -1,15 +1,12 @@
-from math import inf
 import time
 from pathlib import Path
 
 import gymnasium as gym
 import numpy as np
 
-# from gym_asv_ros2.rendering import Viewer2D
-import pyglet
+# import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2 import vessel
 from gym_asv_ros2.manual_action_input import KeyboardListner
 from gym_asv_ros2.obstacles import CircularObstacle
 from gym_asv_ros2.vessel import Vessel
@@ -18,13 +15,14 @@ from gym_asv_ros2.visualization import Visualizer
 BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
 
 class Environment(gym.Env):
-    metadata = {"render_modes": ["human"], "render_fps": 30}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(self) -> None:
 
         self.episode = 0
         self.total_t_steps = 0
         self.t_step = 0
+        self.step_size = 0.2
         self.max_timesteps = 10000
         self.rng = None
 
@@ -38,30 +36,38 @@ class Environment(gym.Env):
 
         # NOTE: Define dock as a circle for now.
         self.dock = CircularObstacle(
-            np.array([0, 10]), 1, (0, 127,0)
+            np.array([10, 10]), 1, (0, 127,0)
         )
 
         self.obstacles = []
 
-        self._action_space = gym.spaces.Box(
+        self.action_space = gym.spaces.Box(
             low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32
         )
-        self._navigation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
+        # NOTE: observation space is currently only navigation
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
 
         # Init visualization
-        self.viewer = Visualizer(1000, 1000)
+        self.viewer = Visualizer(1000, 1000, headless=False)
         self.viewer.add_backround(BG_PMG_PATH)
         self.viewer.add_agent(self.vessel.boundary)
         # Init the dock
         self.dock.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
         print("[env] intialized")
 
+    # @property
+    # def action_space(self):
+    #     return self._action_space
+    #
+    # @property
+    # def observation_space(self):
+    #     return self._navigation_space
 
-    def seed(self, seed=None) -> int:
+    def seed(self, seed=None) -> list[int]:
         """Reseeds the random number generator used in the environment.
         If seed = None a random seed will be choosen."""
         self.rng, seed = seeding.np_random(seed)
-        return seed
+        return [ seed ]
 
     # TODO: fix image arr for recording
     def render(self, mode="human"):
@@ -79,10 +85,11 @@ class Environment(gym.Env):
 
             self.viewer.update_screen()
 
-    def reset(self):
+    def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
+        """Resets the environment and returns an inital observation."""
         # Seed if it is not allready done
         if self.rng is None:
-            self.seed()
+            self.seed(seed)
 
         self.episode += 1
         self.total_t_steps += self.t_step
@@ -96,11 +103,17 @@ class Environment(gym.Env):
 
         self.vessel.reset()
 
+        # generate intial observation
+        intial_observation = self.observe()
+        info = {}
+        return (intial_observation, info)
+
     def _update(self) -> None:
         for obst in self.obstacles:
             obst.update()
 
     def observe(self) -> np.ndarray:
+        """Make the observation vector and check if we reached the goal."""
         vessel_position = self.vessel.position
         vessel_velocity = self.vessel.velocity
         vessel_heading = self.vessel.heading
@@ -108,7 +121,13 @@ class Environment(gym.Env):
         dock_position = self.dock.position
         relative_dock_position = dock_position - vessel_position
 
-        # TODO: check if we reached the goal
+        # Reached goal?
+        min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
+        abs_dist_to_goal = np.linalg.norm(relative_dock_position)
+        if abs_dist_to_goal < min_goal_dist:
+            # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
+            self.reached_goal = True
+
         obs = np.array(
             [
                 vessel_velocity[0],
@@ -118,12 +137,30 @@ class Environment(gym.Env):
                 relative_dock_position[1],
             ]
         )
-        return obs
+        return obs[np.newaxis, :] # FIXME: should find a better way to do this
     
-    # TODO: Implement
-    def reward(self) -> float:
-        return 0
+    def closure_reward(self) -> float:
+        """The closure reward."""
+        reward = 0
+        if self.collision:
+            reward = -1000
+            return reward
+        
+        if self.reached_goal:
+            reward = 1000
+            return reward
 
+
+        # NOTE: not sure if the last postion is the optimal way to go
+        last_vessel_position = self.vessel._prev_states[-1, 0:2]
+        current_vessel_position = self.vessel.position
+        goal_position = self.dock.position
+
+        relative_dist_to_goal = np.linalg.norm(goal_position - current_vessel_position)
+        last_relative_dist_to_goal = np.linalg.norm(goal_position - last_vessel_position)
+        reward = last_relative_dist_to_goal - relative_dist_to_goal
+
+        return float(reward)
 
     def _isdone(self) -> bool:
         return any([
@@ -132,9 +169,9 @@ class Environment(gym.Env):
             self.collision,
         ])
 
-    def step(self, action: np.ndarray):
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
-        Steps the environment by one timestep. Returns ( observation, reward, done, info ).
+        Steps the environment by one timestep. Returns ( observation, reward, done, truncated, info ).
 
         Parameters
         ----------
@@ -149,6 +186,8 @@ class Environment(gym.Env):
             The reward for performing action at his timestep.
         done : bool
             If True the episode is ended, due to either a collision or having reached the goal position.
+        truncated : bool
+            If True the episode is ended, due to time limit or going to far away from the goal position.
         info : dict
             Dictionary with data used for reporting or debugging
         """
@@ -156,7 +195,7 @@ class Environment(gym.Env):
         # Updates environment
         self._update()
 
-        self.vessel.step(action, 0.2)
+        self.vessel.step(action, self.step_size)
 
         # Observe
         observation = self.observe()
@@ -166,40 +205,43 @@ class Environment(gym.Env):
     
         # Check if we should end the episode
         done = self._isdone()
+        truncated = False # TODO: Fixme
 
         # Reward function
-        reward = self.reward()
+        reward = self.closure_reward()
         self.last_reward = reward
+        self.cumulative_reward += reward
+        # print(f"[env.step]: reward = {reward}, cumulative_reward = {self.cumulative_reward}")
 
         self.t_step += 1
 
-        return (observation, reward, done, info)
+        return (observation, reward, done, truncated, info)
 
-
-if __name__ == "__main__":
+def play():
     env = Environment()
     env.reset()
     env.render()
-    time.sleep(1)
-    
+
     listner = KeyboardListner()
     listner.start_listner()
-    # action = np.array([1,1])
-    for i in range(100):
-        action = env._action_space.sample()
-        # action = listner.action
-        # print(f"[Outer loop] action is: {action}")
-        observation, reward, done, info = env.step(action)
-        # print(observation, reward, done, info)
-        env.render()
 
-    env.reset()
-    for i in range(100):
-        action = env._action_space.sample()
-        # action = listner.action
-        # print(f"[Outer loop] action is: {action}")
-        observation, reward, done, info = env.step(action)
-        # print(observation, reward, done, info)
+    while True:
+        start_time = time.time()
+        if listner.quit:
+            break
+
+        action = listner.action
+        observation, reward, done, truncated, info = env.step(action)
+        if done:
+            env.reset()
         env.render()
+        end_time = time.time()
+        run_time = end_time - start_time
+        # print(0.1/run_time)
+        # print(end_time - start_time)
+        # time.sleep(0.2 - run_time)
 
     env.close()
+
+if __name__ == "__main__":
+    play()
