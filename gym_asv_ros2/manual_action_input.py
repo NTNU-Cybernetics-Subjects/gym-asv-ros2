@@ -47,7 +47,7 @@ class KeyboardListner:
         if k.char == "k":
             self.action[1] = 0
 
-        print(self.action)
+        # print(self.action)
 
     def start_listner(self):
         self.listner = keyboard.Listener(on_press=self.press, on_release=self.release)
