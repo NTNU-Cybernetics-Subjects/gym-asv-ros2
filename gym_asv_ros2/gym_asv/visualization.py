@@ -1,16 +1,13 @@
-from pathlib import Path
 import time
+from pathlib import Path
+
+import numpy as np
 import pyglet
 import shapely.affinity
-import numpy as np
-# from gym_asv_ros2.obstacles import BaseObstacle
+
 from gym_asv_ros2.gym_asv.obstacles import BaseObstacle, CircularObstacle
-# from gym_asv_ros2.vessel import Vessel
-from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
-# from gym_asv_ros2.simulator import Game
-# from pyglet.window import key
-#
+from gym_asv_ros2.gym_asv.vessel import Vessel
 
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
