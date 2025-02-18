@@ -9,8 +9,8 @@ from scipy.integrate import solve_ivp
 import gym_asv_ros2.utils.geom_utils as geom
 
 # TODO: Do not import this here
-from rich.traceback import install as install_rich_traceback
-install_rich_traceback()
+# from rich.traceback import install as install_rich_traceback
+# install_rich_traceback()
 
 class VesselParamters(NamedTuple):
     """TODO:"""
@@ -44,8 +44,10 @@ class ThrusterParams(NamedTuple):
 
 class Vessel:
     def __init__(self, init_state: np.ndarray, width: float, length: float) -> None:
-        """Initialize a vessel."""
+        """Initialize a vessel.
+        @param init state: [x_ned, y_ned, psi, surge, sway, yaw_rate]"""
 
+        self._init_state = init_state
         self._state = init_state
         self._prev_inputs = np.array([0,0])
         self._prev_states = np.array([init_state])
@@ -111,23 +113,6 @@ class Vessel:
         crab_angle = np.arctan2(self.velocity[1], self.velocity[0])
         return self.heading + crab_angle
 
-    
-    # @property
-    # def boundary(self) -> shapely.geometry.Polygon:
-    #     """Returns the boundary of the vessel."""
-    #     x0 = self.position[0]
-    #     y0 = self.position[1]
-    #     wh = self.width/2
-    #     lh = self.length/2
-    #     # points (y,x)
-    #     points = [
-    #         (y0+lh, x0-wh), # top left
-    #         (y0+lh, x0+wh), # top right
-    #         (y0-lh, x0+wh), # bottom right
-    #         (y0-lh, x0-wh), # bottom left
-    #         # (y0+lh, x0-wh)  # top left
-    #     ]
-    #     return shapely.geometry.Polygon(points)
 
     # Original shape
     @property
@@ -205,6 +190,9 @@ class Vessel:
         action: np.ndarray[left_motor_input, right_motor_input]
         """
 
+        self._prev_states = np.vstack([self._prev_states, self._state])
+        self._prev_inputs = np.vstack([self._prev_inputs, self._input])
+
         self._input = np.array(
             [self.action_to_thrust(action[0]), self.action_to_thrust(action[1])]
         )
@@ -213,10 +201,16 @@ class Vessel:
         self._state = solution.y[:,-1]
         self._state[2] = geom.princip(self._state[2])
 
-        self._prev_states = np.vstack([self._prev_states, self._state])
-        self._prev_inputs = np.vstack([self._prev_inputs, self._input])
 
         self._step_counter += 1
+
+    def reset(self) -> None:
+        self._state = self._init_state
+        self._prev_inputs = np.array([0,0])
+        self._prev_states = np.array([self._state])
+        self._input = np.array([0,0])
+
+        self._step_counter = 0
 
     # TODO: Implement
     def perceive(self) -> np.ndarray:
@@ -239,9 +233,10 @@ if __name__ == '__main__':
 
     for i in range(100):
         vessel.step(action, 0.1)
+        # print(vessel._prev_states)
         # print(vessel.boundary)
         # print(vessel.position)
-    #
+    print(vessel._prev_states.shape)
     # t = np.arange(0, vessel._step_counter+1)
     # plt.plot(t, vessel._prev_states[:,0])
     plt.plot(vessel._prev_states[:,0], vessel._prev_states[:,1])
