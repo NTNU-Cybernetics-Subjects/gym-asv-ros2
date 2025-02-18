@@ -14,6 +14,7 @@ from gym_asv_ros2.visualization import Visualizer
 
 BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
 
+# FIXME: Do not go through rendering logic if we are training headless
 class Environment(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
