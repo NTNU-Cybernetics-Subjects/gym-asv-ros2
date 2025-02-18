@@ -1,6 +1,6 @@
-from gym_asv_ros2.obstacles import CircularObstacle
-from gym_asv_ros2.vessel import Vessel
-from gym_asv_ros2.visualization import Visualizer, BG_PMG_PATH
+from gym_asv_ros2.gym_asv.obstacles import CircularObstacle
+from gym_asv_ros2.gym_asv.vessel import Vessel
+from gym_asv_ros2.gym_asv.visualization import Visualizer
 import rclpy
 from rclpy.node import Node
 # from std_msgs.msg import String

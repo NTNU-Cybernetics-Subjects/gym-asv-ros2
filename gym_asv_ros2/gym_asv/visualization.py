@@ -11,7 +11,7 @@ from gym_asv_ros2.gym_asv.vessel import Vessel
 
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
-# BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
+BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:
