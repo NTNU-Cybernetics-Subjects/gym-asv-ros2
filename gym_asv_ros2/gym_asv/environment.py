@@ -51,19 +51,16 @@ class Environment(gym.Env):
 
         # Init visualization
         self.viewer = Visualizer(1000, 1000, headless=False)
-        self.viewer.add_backround(BG_PMG_PATH)
-        self.viewer.add_agent(self.vessel.boundary)
-        # Init the dock
-        self.dock.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+        self.init_visualization()
         print("[env] intialized")
 
-    # @property
-    # def action_space(self):
-    #     return self._action_space
-    #
-    # @property
-    # def observation_space(self):
-    #     return self._navigation_space
+    def init_visualization(self):
+        """Initialize all the visual objects used for drawing."""
+        self.viewer.add_backround(BG_PMG_PATH)
+        self.viewer.add_agent(self.vessel.boundary)
+
+        # Init the dock
+        self.dock.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
 
     def seed(self, seed=None) -> list[int]:
         """Reseeds the random number generator used in the environment.
@@ -71,21 +68,24 @@ class Environment(gym.Env):
         self.rng, seed = seeding.np_random(seed)
         return [ seed ]
 
-    # TODO: fix image arr for recording
     def render(self, mode="human"):
 
+        self.viewer.update_camerea_position(self.vessel.position)
+
+        self.viewer.update_agent(self.vessel.position, self.vessel.heading)
+        self.viewer.update_background()
+
+        self.dock.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        # Update obstacle visualization
+        for obst in self.obstacles:
+            obst.update_pyglet_position(self.viewer.camera_position)
+
         if mode == "human":
-            self.viewer.update_camerea_position(self.vessel.position)
-
-            self.viewer.update_agent(self.vessel.position, self.vessel.heading)
-            self.viewer.update_background()
-
-            self.dock.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
-            # Update obstacle visualization
-            for obst in self.obstacles:
-                obst.update_pyglet_position(self.viewer.camera_position)
-
             self.viewer.update_screen()
+
+        # TODO: Add functionallity
+        if mode == "rgb_array":
+            pass
 
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         """Resets the environment and returns an inital observation."""
@@ -207,7 +207,7 @@ class Environment(gym.Env):
     
         # Check if we should end the episode
         done = self._isdone()
-        truncated = False # TODO: Fixme
+        truncated = False # TODO: Add truncated support
 
         # Reward function
         reward = self.closure_reward()
@@ -219,6 +219,9 @@ class Environment(gym.Env):
 
         return (observation, reward, done, truncated, info)
 
+
+
+## --- Debugging ---
 def play():
     env = Environment()
     env.reset()

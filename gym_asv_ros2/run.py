@@ -4,6 +4,11 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from gym_asv_ros2.gym_asv.environment import Environment
 
+# Better debugging
+from rich.traceback import install as install_rich_traceback
+install_rich_traceback()
+
+
 def make_env_subproc():
 
     def _init():
