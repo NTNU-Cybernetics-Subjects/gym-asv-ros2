@@ -2,7 +2,7 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from gym_asv_ros2.environment import Environment
+from gym_asv_ros2.gym_asv.environment import Environment
 
 def make_env_subproc():
 

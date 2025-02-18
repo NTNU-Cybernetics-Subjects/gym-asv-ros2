@@ -4,16 +4,17 @@ import pyglet
 import shapely.affinity
 import numpy as np
 # from gym_asv_ros2.obstacles import BaseObstacle
-from gym_asv_ros2.obstacles import BaseObstacle, CircularObstacle
-from gym_asv_ros2.vessel import Vessel
-from gym_asv_ros2.manual_action_input import KeyboardListner
+from gym_asv_ros2.gym_asv.obstacles import BaseObstacle, CircularObstacle
+# from gym_asv_ros2.vessel import Vessel
+from gym_asv_ros2.gym_asv.vessel import Vessel
+from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 # from gym_asv_ros2.simulator import Game
 # from pyglet.window import key
 #
 
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
-BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
+# BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:

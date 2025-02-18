@@ -6,7 +6,8 @@ import shapely
 from numpy import linalg
 from scipy.integrate import solve_ivp
 
-import gym_asv_ros2.utils.geom_utils as geom
+# import gym_asv_ros2.utils.geom_utils as geom
+import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 
 # TODO: Do not import this here
 # from rich.traceback import install as install_rich_traceback

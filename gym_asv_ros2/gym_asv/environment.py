@@ -7,12 +7,13 @@ import numpy as np
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.manual_action_input import KeyboardListner
-from gym_asv_ros2.obstacles import CircularObstacle
-from gym_asv_ros2.vessel import Vessel
-from gym_asv_ros2.visualization import Visualizer
+from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
+from gym_asv_ros2.gym_asv.obstacles import CircularObstacle
+from gym_asv_ros2.gym_asv.vessel import Vessel
+from gym_asv_ros2.gym_asv.visualization import Visualizer
 
-BG_PMG_PATH = Path( "/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/graphics/bg.png" ) # FIXME: temp hardcoded because of ros import
+BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
+
 
 # FIXME: Do not go through rendering logic if we are training headless
 class Environment(gym.Env):
