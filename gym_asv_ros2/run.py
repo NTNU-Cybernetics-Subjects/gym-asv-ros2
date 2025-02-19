@@ -6,21 +6,17 @@ import gymnasium as gym
 import numpy as np
 
 from stable_baselines3 import PPO
-# from stable_baselines3.common.logger import configure
+import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
 from gym_asv_ros2.gym_asv.environment import Environment
 
 # from stable_baselines3.common.callbacks import BaseCallback
-from gym_asv_ros2.logging import TrainingCallback
+from gym_asv_ros2.logging import FileStorage, TrainingCallback
 
 # Better debugging
 from rich.traceback import install as install_rich_traceback
 install_rich_traceback()
-
-# logger = configure("log/", ["stdout", "csv"]) # FIXME: should define this better
-
-
 
 def make_env_subproc():
 
@@ -30,7 +26,7 @@ def make_env_subproc():
 
     return _init
 
-def train(model_path: str):
+def train(file_storage: FileStorage):
 
     # hyperparams = {
     #     "learning_rate": 2e-4,  # Default 2.5e-4
@@ -42,7 +38,7 @@ def train(model_path: str):
     #     "ent_coef": 0.01,  # Default 0.01
     # }
 
-    env_count = 4
+    env_count = 1
     env = SubprocVecEnv([make_env_subproc() for _ in range(env_count)])
     env = VecMonitor(env)
     # env = Environment()
@@ -54,10 +50,10 @@ def train(model_path: str):
         verbose=True,
         # **hyperparams,
     )
-    # model.set_logger(logger=logger) # NOTE: logging test
-    model.learn(total_timesteps=100000, callback=TrainingCallback("log/"))
-    model.save(model_path)
-    print("Learning done succesfully")
+
+    model.set_logger(sb3_logger.configure(str(file_storage.info)))
+    model.learn(total_timesteps=100000, callback=TrainingCallback(str(file_storage.episode_summary)))
+    model.save(str(file_storage.agents.joinpath("agent")))
 
 def enjoy(model_path: str):
     env = Environment(render=True)
@@ -79,12 +75,14 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    model = "ppo_test"
+    file_storage = FileStorage("training")
+
+    # model = "ppo_test"
     if args.mode == "enjoy":
-        enjoy(model)
+        enjoy(str(file_storage.agents / "agent"))
     elif args.mode == "train":
         start_time = time.time()
-        train(model)
+        train(file_storage)
         end_time = time.time()
         print(f"Elapsed time: {end_time - start_time}")
 
