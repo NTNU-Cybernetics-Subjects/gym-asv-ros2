@@ -64,7 +64,7 @@ class TrainingCallback(BaseCallback):
         self.info_history = {"total_episodes": 0, "successful_episodes": 0}
 
         # Configure episode logger used to log the summary of each episode
-        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv"])
+        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv", "stdout"])
 
     def _on_training_start(self) -> None:
         """
@@ -94,11 +94,10 @@ class TrainingCallback(BaseCallback):
         done_array = np.array(self.locals.get("dones"))
         # episodes_finished = np.sum(done_array)
         if np.any(done_array):
-
             infos = np.array(self.locals.get("infos"))[done_array]
             for i in range(len(infos)):
-                self.info_history["successful_episodes"] += infos[i]["step_info"]["reached_goal"]
-                self.info_history["total_episodes"] += i
+                self.info_history["successful_episodes"] += int(infos[i]["step_info"]["reached_goal"])
+                self.info_history["total_episodes"] += 1
 
                 record_nested_dict(
                     self.episode_logger.record, infos[i], prefix=f"env_{i}"
@@ -119,7 +118,6 @@ class TrainingCallback(BaseCallback):
         """
         self.logger.info("updating policy:")
         record_nested_dict(self.logger.record, self.info_history, "info")
-        pass
 
     def _on_training_end(self) -> None:
         """
