@@ -22,7 +22,7 @@ class Environment(gym.Env):
         self.total_t_steps = 0
         self.t_step = 0
         self.step_size = 0.2
-        self.max_episode_timesteps = 10000
+        self.max_episode_timesteps = 1000
         self.rng = None
 
         self.last_reward = 0
@@ -221,13 +221,21 @@ class Environment(gym.Env):
         self.t_step += 1
 
         # NOTE: Keyword episode is reserved internaly in stableBaselines
-        info = {
+        # It contains {'r': cumulative_reward, 'l': time_steps, "t": elapsed time}
+
+        # TODO: make info
+        step_info = {
             "time_step": self.t_step,
-            "reward": self.last_reward,
-            "cumulative_reward": self.cumulative_reward,
+            "current_reward": self.last_reward,
+            "goal_position": self.dock.position,
             "reached_goal": self.reached_goal,
-            "collision": -1, # TODO: implement this
+            "collision": self.collision,
             "vessel_state": self.vessel._state,
+            "observation": observation
+        }
+        # wrap step_info because we get other info internaly from SB3
+        info = {
+            "step_info": step_info
         }
 
         return (observation, reward, terminated, truncated, info)
