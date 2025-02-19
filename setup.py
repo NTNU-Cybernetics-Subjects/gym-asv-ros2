@@ -28,8 +28,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "manual_control_node = gym_asv_ros2.ros_nodes.manual_control_node:main",
-                "simulator_node = gym_asv_ros2.ros_nodes.simulator_node:main"
+            "manual_control_node = gym_asv_ros2.ros.manual_control_node:main",
+                "simulator_node = gym_asv_ros2.ros.simulator_node:main"
         ],
     },
 )

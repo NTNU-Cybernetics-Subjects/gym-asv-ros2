@@ -2,3 +2,4 @@
 **/__pycache__
 .python-version
 gym_asv_ros2/test*.py
+training
