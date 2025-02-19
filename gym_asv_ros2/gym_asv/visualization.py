@@ -110,6 +110,10 @@ class Visualizer:
     def close(self):
         self.window.close()
 
+
+
+
+## -- Testing ---
 if __name__ == "__main__":
     v = Visualizer(1000, 1000)
 
