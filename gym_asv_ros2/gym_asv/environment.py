@@ -13,18 +13,16 @@ from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 
 
-
-# FIXME: Do not go through rendering logic if we are training headless
 class Environment(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self) -> None:
+    def __init__(self, render: bool=False) -> None:
 
         self.episode = 0
         self.total_t_steps = 0
         self.t_step = 0
         self.step_size = 0.2
-        self.max_timesteps = 10000
+        self.max_episode_timesteps = 10000
         self.rng = None
 
         self.last_reward = 0
@@ -49,8 +47,10 @@ class Environment(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
 
         # Init visualization
-        self.viewer = Visualizer(1000, 1000, headless=False)
-        self.init_visualization()
+        if render:
+            self.viewer = Visualizer(1000, 1000, headless=False)
+            self.init_visualization()
+
         print("[env] intialized")
 
     def init_visualization(self):
@@ -163,11 +163,17 @@ class Environment(gym.Env):
 
         return float(reward)
 
-    def _isdone(self) -> bool:
+    def _check_termination(self) -> bool:
+        """Check if if episode is done due to succsess/fail"""
         return any([
             self.reached_goal,
-            self.t_step > self.max_timesteps,
             self.collision,
+        ])
+
+    def _check_truncated(self) -> bool:
+        return any([
+            self.t_step > self.max_episode_timesteps,
+            # TODO: out of bounds
         ])
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
@@ -185,44 +191,52 @@ class Environment(gym.Env):
             Observation of the environment after action is performed.
         reward : double
             The reward for performing action at his timestep.
-        done : bool
-            If True the episode is ended, due to either a collision or having reached the goal position.
-        truncated : bool
-            If True the episode is ended, due to time limit or going to far away from the goal position.
+        terminated : bool
+            If True the episode is ended, due to either succsess or fail.
+        truncated : bool If True the episode is ended, due to other reasons
+            than sucess/fail, this could be time limit or out of bounds
         info : dict
             Dictionary with data used for reporting or debugging
         """
+
+        # Collect info at top because we want to collect from the previus step
 
         # Updates environment
         self._update()
 
         self.vessel.step(action, self.step_size)
 
-        # Observe
+        # Observe (and check if we reached goal)
         observation = self.observe()
-
-        # TODO: collect info
-        info = {}
-    
+ 
         # Check if we should end the episode
-        done = self._isdone()
-        truncated = False # TODO: Add truncated support
+        terminated = self._check_termination()
+        truncated = self._check_truncated()
 
         # Reward function
         reward = self.closure_reward()
         self.last_reward = reward
         self.cumulative_reward += reward
-        # print(f"[env.step]: reward = {reward}, cumulative_reward = {self.cumulative_reward}")
 
         self.t_step += 1
 
-        return (observation, reward, done, truncated, info)
+        # NOTE: Keyword episode is reserved internaly in stableBaselines
+        info = {
+            "time_step": self.t_step,
+            "reward": self.last_reward,
+            "cumulative_reward": self.cumulative_reward,
+            "reached_goal": self.reached_goal,
+            "collision": -1, # TODO: implement this
+            "vessel_state": self.vessel._state,
+        }
+
+        return (observation, reward, terminated, truncated, info)
 
 
 
 ## --- Debugging ---
 def play():
-    env = Environment()
+    env = Environment(render=True)
     env.reset()
     env.render()
 
@@ -236,7 +250,9 @@ def play():
 
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
+        # print(env.cumulative_reward)
         if done:
+            # print(reward)
             env.reset()
         env.render()
         end_time = time.time()
