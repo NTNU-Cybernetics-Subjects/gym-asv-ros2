@@ -4,17 +4,22 @@ import numpy as np
 import stable_baselines3.common.logger as sb3_logger
 from pathlib import Path
 
+import pprint
+
 
 class FileStorage:
-    def __init__(self, work_dir: str="training") -> None:
-        self.work_dir = Path(work_dir).resolve()
-        if not self.work_dir.exists():
+    def __init__(self, root_dir: str="training", id: str="") -> None:
+
+        self.root_dir = Path(root_dir).resolve()
+        if not self.root_dir.exists():
             raise FileExistsError(f"{self.work_dir} does not exists. Please create it.")
 
-        self.episode_summary = self.work_dir.joinpath("episode_summary")
-        self.info = self.work_dir.joinpath("info")
-        self.tesnserflow = self.work_dir.joinpath("tesnserflow")
-        self.agents = self.work_dir.joinpath("agents")
+        self.work_dir = self.root_dir / id
+
+        self.episode_summary = self.work_dir / "episode_summary"
+        self.info = self.work_dir / "info"
+        self.tesnserflow = self.work_dir / "tesnserflow"
+        self.agents = self.work_dir / "agents"
 
 
     def init_storage(self):
@@ -36,7 +41,7 @@ class TrainingCallback(BaseCallback):
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
     """
 
-    def __init__(self, episode_log_dir: str, verbose: int = 0):
+    def __init__(self, episode_log_dir: str, agents_dir: str, verbose: int = 0):
         super().__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -59,17 +64,20 @@ class TrainingCallback(BaseCallback):
 
         self.episodes = 0
         self.log_frequency = 100
+        self.save_frequency = None
 
         # history variables
         self.info_history = {"total_episodes": 0, "successful_episodes": 0}
 
         # Configure episode logger used to log the summary of each episode
-        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv", "stdout"])
+        self.agents_dir = agents_dir
+        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv", "stdout", "tensorboard"])
 
     def _on_training_start(self) -> None:
         """
         This method is called before the first rollout starts.
         """
+        self.save_frequency = int(self.model._total_timesteps / 10)
         pass
 
     def _on_rollout_start(self) -> None:
@@ -92,22 +100,33 @@ class TrainingCallback(BaseCallback):
 
         # Check if any episodes are done
         done_array = np.array(self.locals.get("dones"))
-        # episodes_finished = np.sum(done_array)
+        ids = np.where(done_array)[0]
         if np.any(done_array):
             infos = np.array(self.locals.get("infos"))[done_array]
+            episode_summaries = np.array(self.training_env.get_attr("episode_summary"))[done_array]
+
             for i in range(len(infos)):
-                self.info_history["successful_episodes"] += int(infos[i]["step_info"]["reached_goal"])
+                log_statistics = episode_summaries[i]
+                desired_from_info = ["TimeLimit.truncated", "episode"]
+                log_statistics.update({k: infos[i][k] for k in desired_from_info if k in infos[i]}) # Copy the desired metrics from infos
+
+                # Update general metrics
+                self.info_history["successful_episodes"] += int(log_statistics["reached_goal"])
                 self.info_history["total_episodes"] += 1
 
                 record_nested_dict(
-                    self.episode_logger.record, infos[i], prefix=f"env_{i}"
+                    self.episode_logger.record, log_statistics
                 )
-                # record_nested_dict(self.logger.record_mean, infos[i]) # Record the mean of all the episodes that have finished since last dump
-            self.episode_logger.dump()
-
+                self.episode_logger.record("env_id", ids[i])
+                self.episode_logger.dump()
 
         # if self.num_timesteps % self.log_frequency == 0:
         #     pass
+
+        if self.num_timesteps % self.save_frequency == 0:
+            filename = f"{self.agents_dir}/{self.num_timesteps}__{self.info_history['total_episodes']}"
+            self.logger.info(f"Saving agent at {filename}")
+            self.model.save(filename)
 
         return True
 
@@ -133,8 +152,15 @@ def record_nested_dict(out, info, prefix=""):
     for key, value in info.items():
         current_key = f"{prefix}/{key}" if prefix else key
 
+        # Recursive call to nest out the dict
         if isinstance(value, dict):
             record_nested_dict(out, value, current_key)
+
+        elif isinstance(value, np.ndarray):
+            flat_values = value.flatten()
+            for i in range(len(flat_values)):
+                out(f"{current_key}/{i}", flat_values[i])
+
         else:
             out(current_key, value)
 
@@ -156,5 +182,6 @@ def test_record_nested_dict():
 
 if __name__ == "__main__":
     # test_record_nested_dict()
-    test = FileStorage("testtt")
-    test.init_storage()
+    test = FileStorage("test", "hei")
+    print(test.work_dir)
+    # test.init_storage()
