@@ -46,22 +46,14 @@ class Visualizer:
         self.agent.position = (self.window.width/2, self.window.height/2)
 
 
-    ## NOTE: keep camera static and move agent
-    # def update_agent(self, vessel: Vessel):
-    #     offset = vessel.boundary.exterior.coords[0]
-    #     # Vessel has center in CO, while pyglet.shape.polygon has center in the first vertex,
-    #     # we therefore translate the pyglet object to get the same CO
-    #     xpos = (vessel.position[0] + offset[0]) * self.pixels_per_unit
-    #     ypos = (vessel.position[1] + offset[1]) * self.pixels_per_unit
-    #     self.agent.position = (xpos, ypos)
-    #     self.agent.rotation = -np.rad2deg(vessel.heading)
-
     def update_camerea_position(self, agent_position: np.ndarray):
         """Updates the camera position, The coordinate defines the center of the window.""" 
 
         # Following the agent by moving the camera oppiste of agents movement,
         # using the window offset to keep the agents position in the center for
         # the screen
+        # camera_x = self.window.width/2
+        # camera_y = self.window.height/2
         camera_x = -agent_position[0] * self.pixels_per_unit + self.window.width/2
         camera_y = -agent_position[1] * self.pixels_per_unit + self.window.height/2
         self.camera_position[0] = camera_x
@@ -92,7 +84,7 @@ class Visualizer:
         self.bg_sprite.scale_y = ( self.window.height *2) / self.bg_sprite.height
 
     def update_background(self):
-        """Moves the background image the opposite way of the agents position
+        """Moves the background image the opposite way of the camera position
         to 'simulate' the agent moving. """
 
         new_bg_x = -(-self.camera_position[0] % self.window.width)
@@ -101,6 +93,16 @@ class Visualizer:
         # print(f"camerea: {self.camera_position}, bg: {new_bg_pos}")
         
         self.bg_sprite.position = new_bg_pos
+
+    def get_rbg_array(self):
+        # self.window.flip()
+        image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+        # self.window.flip()
+
+        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
+        arr = arr.reshape(self.window.height, self.window.width, 4)
+
+        return arr[::-1, :, 0:3]
 
     def update_screen(self):
         self.window.clear()
@@ -145,6 +147,9 @@ if __name__ == "__main__":
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         # obst.update_pyglet_position(v.,vessel.position, v.pixels_per_unit)
         v.update_screen()
+        test = v.get_rbg_array()
+        print(test)
+        # print( v.get_rbg_array() )
         t +=1
         print(f"vessel: {vessel.position}, obst: {obst.position}")
  

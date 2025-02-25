@@ -15,9 +15,10 @@ from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 
 
 class Environment(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
+    metadata = {"render_modes": ["None", "human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render: bool = False) -> None:
+    def __init__(self, render: bool = False, *args, **kwargs) -> None:
+        # self.render_mode = "rgb_array"
 
         self.episode = 0
         self.total_t_steps = 0
@@ -79,7 +80,7 @@ class Environment(gym.Env):
         self.rng, seed = seeding.np_random(seed)
         return [seed]
 
-    def render(self, mode="human"):
+    def render(self):
         self.viewer.update_camerea_position(self.vessel.position)
 
         self.viewer.update_agent(self.vessel.position, self.vessel.heading)
@@ -92,12 +93,15 @@ class Environment(gym.Env):
         for obst in self.obstacles:
             obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
-        if mode == "human":
-            self.viewer.update_screen()
+        self.viewer.update_screen()
+        # if mode == "human":
+        #     self.viewer.update_screen()
 
-        # TODO: Add functionallity
-        if mode == "rgb_array":
-            pass
+        if self.render_mode == "rgb_array":
+            arr = self.viewer.get_rbg_array()
+            return arr
+        
+        return None
 
     def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
         """Resets the environment and returns an inital observation."""
@@ -271,8 +275,8 @@ class Environment(gym.Env):
 
 class RandomDockEnv(Environment):
 
-    def __init__(self, render: bool = False) -> None:
-        super().__init__(render)
+    def __init__(self, render: bool = False, *args, **kwargs) -> None:
+        super().__init__(render, *args, **kwargs)
         # self.init_visualization()
         
         # self.level = 0
