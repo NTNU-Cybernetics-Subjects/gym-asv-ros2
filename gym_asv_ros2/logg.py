@@ -20,6 +20,7 @@ class FileStorage:
         self.info = self.work_dir / "info"
         self.tesnserflow = self.work_dir / "tesnserflow"
         self.agents = self.work_dir / "agents"
+        self.videos = self.work_dir / "video"
 
 
     def init_storage(self):
@@ -30,6 +31,48 @@ class FileStorage:
                 continue
             if isinstance(attr, Path):
                 attr.mkdir(exist_ok=True, parents=True)
+
+
+    def verify_filestorage_choise(self) -> bool:
+        """Returns true if we should continue, False if not."""
+
+        if not self.work_dir.exists():
+            return True
+
+        option = input(f"{self.work_dir} Does allready exists, are you sure you want to use this logdir? [y/N]")
+        if option.lower() == "y":
+            return True
+        
+        return False
+
+    def agent_picker(self, name="") -> str:
+
+        agents = [file.name for file in self.agents.iterdir() if file.is_file()]
+
+        if len(agents) <= 0:
+            print("There is no agents in file storage")
+            return ""
+
+        if name in agents:
+            return str( self.agents / name )
+
+        # Prompt for agent to use
+        for i in range(len(agents)):
+            print(i, agents[i])
+
+        try:
+            index = int(input("Which agent [int]? "))
+            return str( self.agents / agents[index] )
+
+        except ValueError:
+            print("Invalid Choise.")
+        
+        return ""
+
+
+        # try:
+        # except:
+
 
 
 
@@ -182,6 +225,10 @@ def test_record_nested_dict():
 
 if __name__ == "__main__":
     # test_record_nested_dict()
-    test = FileStorage("test", "hei")
-    print(test.work_dir)
+    test = FileStorage("training", "closure_reward_1M")
+    f = test.agent_picker(name="200000__133.zip")
+    print(f)
+
+    
+    # print(test.work_dir)
     # test.init_storage()

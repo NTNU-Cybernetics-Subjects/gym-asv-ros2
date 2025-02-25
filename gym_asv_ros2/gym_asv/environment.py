@@ -15,10 +15,14 @@ from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 
 
 class Environment(gym.Env):
-    metadata = {"render_modes": ["None", "human", "rgb_array"], "render_fps": 30}
+    metadata = {"render_modes": [None, "human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render: bool = False, *args, **kwargs) -> None:
-        # self.render_mode = "rgb_array"
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+
+        # Set render mode
+        if render_mode not in self.metadata["render_modes"]:
+            raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
+        self.render_mode = render_mode
 
         self.episode = 0
         self.total_t_steps = 0
@@ -53,7 +57,7 @@ class Environment(gym.Env):
         self._setup()
 
         # Init visualization
-        if render:
+        if self.render_mode:
             self.viewer = Visualizer(1000, 1000, headless=False)
             self.init_visualization()
 
@@ -81,6 +85,10 @@ class Environment(gym.Env):
         return [seed]
 
     def render(self):
+        """Render one frame"""
+        if not self.render_mode:
+            return None
+
         self.viewer.update_camerea_position(self.vessel.position)
 
         self.viewer.update_agent(self.vessel.position, self.vessel.heading)
@@ -275,8 +283,8 @@ class Environment(gym.Env):
 
 class RandomDockEnv(Environment):
 
-    def __init__(self, render: bool = False, *args, **kwargs) -> None:
-        super().__init__(render, *args, **kwargs)
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+        super().__init__(render_mode, *args, **kwargs)
         # self.init_visualization()
         
         # self.level = 0

@@ -9,6 +9,8 @@ from datetime import datetime
 from stable_baselines3 import PPO
 import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from gymnasium.wrappers import RecordVideo
+from torch.serialization import FILE_LIKE
 
 from gym_asv_ros2.gym_asv.environment import Environment, RandomDockEnv
 
@@ -20,16 +22,21 @@ from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from rich.traceback import install as install_rich_traceback
 install_rich_traceback()
 
-def make_env_subproc(render):
+def make_env_subproc(render_mode=None):
 
     def _init():
         # env = Environment()
-        env = RandomDockEnv(render)
+        env = RandomDockEnv(render_mode=None)
         return env
 
     return _init
 
 def train(file_storage: FileStorage):
+
+    # Prompt for premission before writing over existing logdir.
+    proceed = file_storage.verify_filestorage_choise()
+    if not proceed:
+        return
 
     # hyperparams = {
     #     "learning_rate": 2e-4,  # Default 2.5e-4
@@ -43,8 +50,8 @@ def train(file_storage: FileStorage):
 
     env_count = 4
     # total_timesteps = env_count * 1000000
-    total_timesteps = 10000
-    env = SubprocVecEnv([make_env_subproc(render=False) for _ in range(env_count)])
+    total_timesteps = 1000000
+    env = SubprocVecEnv([make_env_subproc(render_mode="None") for _ in range(env_count)])
     env = VecMonitor(env)
     # env = Environment()
     
@@ -65,16 +72,31 @@ def train(file_storage: FileStorage):
     print(f"traing finished, saving agent to: {agent_file}")
     model.save(agent_file)
 
-def enjoy(model_path: str):
+def enjoy(file_storage: FileStorage, agent: str, time_stamp: str):
+
+    agent_path = file_storage.agent_picker(agent)
+    if not agent_path:
+        return
+    video_path = str(file_storage.videos / time_stamp )
+
     # env = SubprocVecEnv([ make_env_subproc(render=True) ])
-    env = RandomDockEnv(render=True)
-    model = PPO.load(model_path, env=env)
+    env = RandomDockEnv(render_mode="rgb_array")
+    env = RecordVideo(env, video_path, episode_trigger=lambda t: True)
+    model = PPO.load(agent_path, env=env)
 
+    listner = KeyboardListner()
+    listner.start_listner()
 
-    while True:
+    run = True
+    while run:
         obs, _ = env.reset()
         done = False
         while not done:
+            if listner.quit:
+                env.close()
+                run = False
+                break
+
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action)
             # print(info["vessel_state"])
@@ -89,12 +111,17 @@ if __name__ == '__main__':
     parser.add_argument(
         "mode",
         help="TODO",
-        choices=["enjoy", "train", "play"]
+        choices=["enjoy", "train"]
     )
     parser.add_argument(
         "--logid",
         help="TOOD",
         default=time_stamp
+    )
+    parser.add_argument(
+        "--agent",
+        help="TODO",
+        default = ""
     )
     args = parser.parse_args()
 
@@ -102,7 +129,7 @@ if __name__ == '__main__':
     file_storage = FileStorage("training", args.logid)
 
     if args.mode == "enjoy":
-        enjoy(str(file_storage.agents / "agent"))
+        enjoy(file_storage, args.agent, time_stamp)
 
     elif args.mode == "train":
         start_time = time.time()
