@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import time
 from pathlib import Path
 
@@ -7,8 +8,8 @@ import numpy as np
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.obstacles import CircularObstacle
+from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 
@@ -16,13 +17,13 @@ from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 class Environment(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render: bool=False) -> None:
+    def __init__(self, render: bool = False) -> None:
 
         self.episode = 0
         self.total_t_steps = 0
         self.t_step = 0
         self.step_size = 0.2
-        self.max_episode_timesteps = 1000
+        self.max_episode_timesteps = 5000
         self.rng = None
 
         self.last_reward = 0
@@ -31,12 +32,10 @@ class Environment(gym.Env):
         self.reached_goal = False
         self.collision = False
 
-        self.vessel = Vessel(np.array([0.0, 0.0, np.pi/2, 0.0, 0.0, 0.0]), 1, 1)
+        self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
 
         # NOTE: Define dock as a circle for now.
-        self.dock = CircularObstacle(
-            np.array([10, 10]), 1, (0, 127,0)
-        )
+        self.dock = CircularObstacle(np.array([10, 10]), 1, (0, 127, 0))
 
         self.obstacles = []
 
@@ -46,6 +45,12 @@ class Environment(gym.Env):
         # NOTE: observation space is currently only navigation
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
 
+        self._info = {}
+        self.episode_summary = {}
+        self.last_observation = np.array([])
+
+        self._setup()
+
         # Init visualization
         if render:
             self.viewer = Visualizer(1000, 1000, headless=False)
@@ -53,10 +58,17 @@ class Environment(gym.Env):
 
         print("[env] intialized")
 
+
+    def _setup(self):
+        pass
+
     def init_visualization(self):
         """Initialize all the visual objects used for drawing."""
         self.viewer.add_backround(BG_PMG_PATH)
         self.viewer.add_agent(self.vessel.boundary)
+
+        for obst in self.obstacles:
+            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
 
         # Init the dock
         self.dock.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
@@ -65,19 +77,20 @@ class Environment(gym.Env):
         """Reseeds the random number generator used in the environment.
         If seed = None a random seed will be choosen."""
         self.rng, seed = seeding.np_random(seed)
-        return [ seed ]
+        return [seed]
 
     def render(self, mode="human"):
-
         self.viewer.update_camerea_position(self.vessel.position)
 
         self.viewer.update_agent(self.vessel.position, self.vessel.heading)
         self.viewer.update_background()
 
-        self.dock.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        self.dock.update_pyglet_position(
+            self.viewer.camera_position, self.viewer.pixels_per_unit
+        )
         # Update obstacle visualization
         for obst in self.obstacles:
-            obst.update_pyglet_position(self.viewer.camera_position)
+            obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
         if mode == "human":
             self.viewer.update_screen()
@@ -92,12 +105,11 @@ class Environment(gym.Env):
         if self.rng is None:
             self.seed(seed)
 
-        self.episode += 1
         self.total_t_steps += self.t_step
+        self.t_step = 0
 
         self.last_reward = 0
         self.cumulative_reward = 0
-        self.t_step = 0
 
         self.reached_goal = False
         self.collision = False
@@ -106,8 +118,15 @@ class Environment(gym.Env):
 
         # generate intial observation
         intial_observation = self.observe()
-        info = {}
-        return (intial_observation, info)
+        self.last_observation = intial_observation
+
+        self._setup()
+
+        # Add intial info (Do not update info before )
+        self.update_info()
+        initial_info = self._info
+
+        return (intial_observation, initial_info)
 
     def _update(self) -> None:
         for obst in self.obstacles:
@@ -123,7 +142,9 @@ class Environment(gym.Env):
         relative_dock_position = dock_position - vessel_position
 
         # Reached goal?
-        min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
+        min_goal_dist = (
+            self.dock.radius
+        )  # We need to be inside the raidus of the dock circle
         abs_dist_to_goal = np.linalg.norm(relative_dock_position)
         if abs_dist_to_goal < min_goal_dist:
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
@@ -138,19 +159,18 @@ class Environment(gym.Env):
                 relative_dock_position[1],
             ]
         )
-        return obs[np.newaxis, :] # FIXME: should find a better way to do this
-    
+        return obs[np.newaxis, :]  # FIXME: should find a better way to do this
+
     def closure_reward(self) -> float:
         """The closure reward."""
         reward = 0
         if self.collision:
             reward = -1000
             return reward
-        
+
         if self.reached_goal:
             reward = 1000
             return reward
-
 
         # NOTE: not sure if the last postion is the optimal way to go
         last_vessel_position = self.vessel._prev_states[-1, 0:2]
@@ -158,23 +178,29 @@ class Environment(gym.Env):
         goal_position = self.dock.position
 
         relative_dist_to_goal = np.linalg.norm(goal_position - current_vessel_position)
-        last_relative_dist_to_goal = np.linalg.norm(goal_position - last_vessel_position)
+        last_relative_dist_to_goal = np.linalg.norm(
+            goal_position - last_vessel_position
+        )
         reward = last_relative_dist_to_goal - relative_dist_to_goal
 
         return float(reward)
 
     def _check_termination(self) -> bool:
         """Check if if episode is done due to succsess/fail"""
-        return any([
-            self.reached_goal,
-            self.collision,
-        ])
+        return any(
+            [
+                self.reached_goal,
+                self.collision,
+            ]
+        )
 
     def _check_truncated(self) -> bool:
-        return any([
-            self.t_step > self.max_episode_timesteps,
-            # TODO: out of bounds
-        ])
+        return any(
+            [
+                self.t_step > self.max_episode_timesteps,
+                # TODO: out of bounds
+            ]
+        )
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
@@ -199,8 +225,6 @@ class Environment(gym.Env):
             Dictionary with data used for reporting or debugging
         """
 
-        # Collect info at top because we want to collect from the previus step
-
         # Updates environment
         self._update()
 
@@ -208,7 +232,8 @@ class Environment(gym.Env):
 
         # Observe (and check if we reached goal)
         observation = self.observe()
- 
+        self.last_observation = observation
+
         # Check if we should end the episode
         terminated = self._check_termination()
         truncated = self._check_truncated()
@@ -218,33 +243,56 @@ class Environment(gym.Env):
         self.last_reward = reward
         self.cumulative_reward += reward
 
+        self.update_info()
+        info = self._info
+
+        # Episode finished
+        if terminated or truncated:
+            self.episode += 1
+            self.episode_summary = self._info.copy()
+
+        # Increase step counter at after stepping
         self.t_step += 1
-
-        # NOTE: Keyword episode is reserved internaly in stableBaselines
-        # It contains {'r': cumulative_reward, 'l': time_steps, "t": elapsed time}
-
-        # TODO: make info
-        step_info = {
-            "time_step": self.t_step,
-            "current_reward": self.last_reward,
-            "goal_position": self.dock.position,
-            "reached_goal": self.reached_goal,
-            "collision": self.collision,
-            "vessel_state": self.vessel._state,
-            "observation": observation
-        }
-        # wrap step_info because we get other info internaly from SB3
-        info = {
-            "step_info": step_info
-        }
 
         return (observation, reward, terminated, truncated, info)
 
+    def update_info(self) -> None:
+        """Updates the info and returns it. Should be called in each step and in reset"""
+
+        self._info["time_step"] = self.t_step
+        self._info["current_reward"] = self.last_reward
+        self._info["goal_position"] = self.dock.position
+        self._info["vessel_state"] = self.vessel._state
+        self._info["observation"] = self.last_observation
+        self._info["reached_goal"] = self.reached_goal
+        self._info["collision"] = self.collision
+        self._info["episode_nr"] = self.episode
 
 
-## --- Debugging ---
+class RandomDockEnv(Environment):
+
+    def __init__(self, render: bool = False) -> None:
+        super().__init__(render)
+        # self.init_visualization()
+        
+        # self.level = 0
+
+
+    def _setup(self):
+        # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
+        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+        if reached_goal:
+            dock_x = np.random.randint(-20,20)
+            dock_y = np.random.randint(5,20)
+            self.dock.position[0] = dock_x
+            self.dock.position[1] = dock_y
+        print(f"dock configuration: {self.dock.position}")
+
+
+### -- debugging ---
 def play():
-    env = Environment(render=True)
+    # env = Environment(render=True)
+    env = RandomDockEnv(render=True)
     env.reset()
     env.render()
 
@@ -258,6 +306,7 @@ def play():
 
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
+
         # print(env.cumulative_reward)
         if done:
             # print(reward)
@@ -271,5 +320,7 @@ def play():
 
     env.close()
 
+
 if __name__ == "__main__":
+    # pass
     play()
