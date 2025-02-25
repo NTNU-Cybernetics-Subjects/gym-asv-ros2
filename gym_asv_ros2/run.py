@@ -133,9 +133,14 @@ if __name__ == '__main__':
 
     elif args.mode == "train":
         start_time = time.time()
+
         train(file_storage)
+
+        # Format the time printout
         end_time = time.time()
-        print(f"elapsed time: {end_time - start_time}")
+        elapsed_time = time.gmtime( end_time - start_time )
+        formatted_time = time.strftime("%H:%M:%S", elapsed_time)
+        print(f"elapsed time: {formatted_time}")
 
     # elif args.mode == "play":
     #     play()
