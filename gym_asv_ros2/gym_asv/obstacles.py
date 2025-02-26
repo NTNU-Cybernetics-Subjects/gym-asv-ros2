@@ -41,7 +41,7 @@ class BaseObstacle:
     @abstractmethod
     def update(self) -> None:
         """Updates the obstacle if it is dynamic. Should be defined in
-        subclasses. If the funciton is not defined the obstacle is assumed
+        subclasses. If the funciton is not defined, the obstacle is assumed
         static."""
         pass
 
@@ -71,8 +71,8 @@ class CircularObstacle(BaseObstacle):
     def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None:
         scaled_position = self.position * scale
         scaled_radius = self.radius * scale
-        self._pyglet_shape = pyglet.shapes.Circle(
-            scaled_position[0], scaled_position[1], scaled_radius, batch=batch, color=self.color, 
+        self._pyglet_shape = pyglet.shapes.Circle( # pyright: ignore
+            scaled_position[0], scaled_position[1], scaled_radius, batch=batch, color=self.color,
         )
 
     # TODO: Make an inteface to support dynamic obstacles.

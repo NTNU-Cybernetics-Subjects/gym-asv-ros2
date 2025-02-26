@@ -54,6 +54,7 @@ class Environment(gym.Env):
         self.episode_summary = {}
         self.last_observation = np.array([])
 
+        # Set up the environment
         self._setup()
 
         # Init visualization

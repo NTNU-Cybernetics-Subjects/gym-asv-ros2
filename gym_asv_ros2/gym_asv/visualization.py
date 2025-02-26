@@ -20,7 +20,7 @@ class Visualizer:
         self.batch = pyglet.graphics.Batch()
 
         self.agent = None
-        self.geoms = []
+        # self.geoms = []
 
         self.bg_sprite = None
 

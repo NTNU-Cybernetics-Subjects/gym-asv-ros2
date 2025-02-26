@@ -4,8 +4,6 @@ import numpy as np
 import stable_baselines3.common.logger as sb3_logger
 from pathlib import Path
 
-import pprint
-
 
 class FileStorage:
     def __init__(self, root_dir: str="training", id: str="") -> None:
@@ -68,13 +66,6 @@ class FileStorage:
             print("Invalid Choise.")
         
         return ""
-
-
-        # try:
-        # except:
-
-
-
 
 
 class TrainingCallback(BaseCallback):
