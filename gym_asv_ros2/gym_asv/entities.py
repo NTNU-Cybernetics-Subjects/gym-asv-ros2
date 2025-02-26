@@ -4,7 +4,7 @@ import shapely.affinity
 import numpy as np
 from abc import ABC, abstractmethod
 
-class BaseObstacle:
+class BaseEntity:
 
     def __init__(self) -> None:
         """Base attributes of a obstacle."""
@@ -52,7 +52,7 @@ class BaseObstacle:
         self._pyglet_shape.position = screen_position.tolist()
 
 
-class CircularObstacle(BaseObstacle):
+class CircularEntity(BaseEntity):
     def __init__(self, position: np.ndarray, radius: float, color=(205, 197, 197)) -> None:
         self.position = position
         self.radius = radius

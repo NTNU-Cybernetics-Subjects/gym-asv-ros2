@@ -5,7 +5,7 @@ import numpy as np
 import pyglet
 import shapely.affinity
 
-from gym_asv_ros2.gym_asv.obstacles import BaseObstacle, CircularObstacle
+from gym_asv_ros2.gym_asv.entities import CircularEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
@@ -128,8 +128,10 @@ if __name__ == "__main__":
     v.update_agent(vessel.position, vessel.heading)
 
     # Add obstacle:
-    obst = CircularObstacle(np.array([10,10]), 1, color=(27, 127,0))
+    obst = CircularEntity(np.array([10,10]), 1, color=(27, 127,0))
     obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
+
+    arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
 
     listner = KeyboardListner()
     listner.start_listner()
@@ -147,10 +149,10 @@ if __name__ == "__main__":
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         # obst.update_pyglet_position(v.,vessel.position, v.pixels_per_unit)
         v.update_screen()
-        test = v.get_rbg_array()
-        print(test)
+        # test = v.get_rbg_array()
+        # print(test)
         # print( v.get_rbg_array() )
         t +=1
-        print(f"vessel: {vessel.position}, obst: {obst.position}")
+        # print(f"vessel: {vessel.position}, obst: {obst.position}")
  
     v.close()

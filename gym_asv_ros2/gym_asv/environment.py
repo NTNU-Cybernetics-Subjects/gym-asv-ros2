@@ -8,7 +8,7 @@ import numpy as np
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.obstacles import CircularObstacle
+from gym_asv_ros2.gym_asv.entities import CircularEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
@@ -40,7 +40,7 @@ class Environment(gym.Env):
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
 
         # NOTE: Define dock as a circle for now.
-        self.dock = CircularObstacle(np.array([10, 10]), 1, (0, 127, 0))
+        self.dock = CircularEntity(np.array([10, 10]), 1, (0, 127, 0))
 
         self.obstacles = []
 
@@ -48,7 +48,7 @@ class Environment(gym.Env):
             low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32
         )
         # NOTE: observation space is currently only navigation
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6))
 
         self._info = {}
         self.episode_summary = {}
