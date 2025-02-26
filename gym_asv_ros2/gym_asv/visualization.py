@@ -103,6 +103,25 @@ class Visualizer:
         arr = arr.reshape(self.window.height, self.window.width, 4)
 
         return arr[::-1, :, 0:3]
+    
+    def shape_in_window(self, shape: pyglet.shapes.ShapeBase) -> bool:
+        """Checks if a shape is inside or outside the window.
+            If it is inside drawing for the shape is enabled, and if it is
+            outside drawing is dissabled
+        """
+
+        visible = True
+        # Out of bounds x
+        if shape.position[0] > self.window.width or shape.position[0] < 0:
+            visible = False
+
+        # out of bounds y
+        if shape.position[1] > self.window.height or shape.position[1] < 0:
+            visible = False
+        
+        shape.visible = visible
+        return visible
+
 
     def update_screen(self):
         self.window.clear()
@@ -160,7 +179,7 @@ if __name__ == "__main__":
     pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
     for ver in pol_vertecies:
         ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
+    # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
 
 
     # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
@@ -181,19 +200,21 @@ if __name__ == "__main__":
         v.update_background()
 
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        circle_visible = v.shape_in_window(obst.pyglet_shape)
+        print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
 
         pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         for ver in pol_vertecies:
             ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
 
-        for ver in agent_vertecies:
-            ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        # for ver in agent_vertecies:
+            # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
 
         v.update_screen()
         # test = v.get_rbg_array()
         # print(test)
         t +=1
-        print(f"vessel: {vessel.position}, obst: {pol.position}")
+        # print(f"vessel: {vessel.position}, obst: {pol.position}")
  
     v.close()
