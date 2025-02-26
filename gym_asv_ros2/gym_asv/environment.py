@@ -5,6 +5,7 @@ from pathlib import Path
 import gymnasium as gym
 import numpy as np
 
+import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 # import pyglet
 from gymnasium.utils import seeding
 
@@ -161,11 +162,18 @@ class Environment(gym.Env):
         dock_position = self.dock.position
         relative_dock_position = dock_position - vessel_position
 
+        dock_angle = self.dock.angle
+        dock_heading_error = geom.princip(dock_angle - vessel_heading)
+        # print(f"heading_error: {dock_heading_error}")
+
         # Reached goal?
         # min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
         min_goal_dist = self.vessel.width/2
         abs_dist_to_goal = np.linalg.norm(relative_dock_position)
-        if abs_dist_to_goal < min_goal_dist:
+
+        min_heading_error = np.deg2rad(10)
+
+        if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
             self.reached_goal = True
 
@@ -176,12 +184,18 @@ class Environment(gym.Env):
                 vessel_heading,
                 relative_dock_position[0],
                 relative_dock_position[1],
+                dock_heading_error
             ]
         )
         return obs[np.newaxis, :]  # FIXME: should find a better way to do this
 
+    def reward(self):
+        pass
+
     def closure_reward(self) -> float:
-        """The closure reward."""
+        """The closure reward. Positive reward for moving towards goal and
+        lowering heading error, Negative reward for increasing goal distance
+        and increasing heading error"""
         reward = 0
         if self.collision:
             reward = -1000
@@ -191,7 +205,7 @@ class Environment(gym.Env):
             reward = 1000
             return reward
 
-        # NOTE: not sure if the last postion is the optimal way to go
+        # Closure term
         last_vessel_position = self.vessel._prev_states[-1, 0:2]
         current_vessel_position = self.vessel.position
         goal_position = self.dock.position
@@ -200,9 +214,23 @@ class Environment(gym.Env):
         last_relative_dist_to_goal = np.linalg.norm(
             goal_position - last_vessel_position
         )
-        reward = last_relative_dist_to_goal - relative_dist_to_goal
+        closure_term = last_relative_dist_to_goal - relative_dist_to_goal
+
+        # Heading term
+        last_vessel_heading = self.vessel._prev_states[-1, 2]
+        current_vessel_heading = self.vessel.heading
+        last_vessel_heading_error = np.abs(geom.princip(self.dock.angle - last_vessel_heading))
+        current_vessel_heading_error = np.abs(geom.princip(self.dock.angle - current_vessel_heading))
+        heading_term = last_vessel_heading_error - current_vessel_heading_error
+
+        reward = closure_term + heading_term
 
         return float(reward)
+    
+    # def penelizing_reward(self):
+        # obs = self.last_observation.flatten()
+        
+
 
     def _check_termination(self) -> bool:
         """Check if if episode is done due to succsess/fail"""
@@ -325,6 +353,8 @@ def play():
 
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
+        # print(observation)
+        # print(reward)
 
         # print(env.cumulative_reward)
         if done:
@@ -336,7 +366,7 @@ def play():
         # print(0.1/run_time)
         # print(end_time - start_time)
         # time.sleep(0.2 - run_time)
-        print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
+        # print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
 
     env.close()
 
