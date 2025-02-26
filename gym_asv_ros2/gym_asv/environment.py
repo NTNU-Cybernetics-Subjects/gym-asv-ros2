@@ -8,7 +8,7 @@ import numpy as np
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.entities import CircularEntity
+from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
@@ -40,7 +40,14 @@ class Environment(gym.Env):
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
 
         # NOTE: Define dock as a circle for now.
-        self.dock = CircularEntity(np.array([10, 10]), 1, (0, 127, 0))
+        # self.dock = CircularEntity(np.array([10, 10]), 1, (0, 127, 0))
+
+        self.dock = PolygonEntity(
+            list(self.vessel.boundary.exterior.coords),
+            position=np.array([10,10]),
+            angle=np.pi/8,
+            color=(0,127,0)
+        )
 
         self.obstacles = []
 
@@ -155,9 +162,8 @@ class Environment(gym.Env):
         relative_dock_position = dock_position - vessel_position
 
         # Reached goal?
-        min_goal_dist = (
-            self.dock.radius
-        )  # We need to be inside the raidus of the dock circle
+        # min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
+        min_goal_dist = self.vessel.width/2
         abs_dist_to_goal = np.linalg.norm(relative_dock_position)
         if abs_dist_to_goal < min_goal_dist:
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
@@ -305,7 +311,7 @@ class RandomDockEnv(Environment):
 ### -- debugging ---
 def play():
     # env = Environment(render=True)
-    env = RandomDockEnv(render=True)
+    env = RandomDockEnv(render_mode="human")
     env.reset()
     env.render()
 
@@ -330,6 +336,7 @@ def play():
         # print(0.1/run_time)
         # print(end_time - start_time)
         # time.sleep(0.2 - run_time)
+        print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
 
     env.close()
 
