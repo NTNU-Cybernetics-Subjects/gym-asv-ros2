@@ -5,7 +5,7 @@ import numpy as np
 import pyglet
 import shapely.affinity
 
-from gym_asv_ros2.gym_asv.entities import CircularEntity
+from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
@@ -116,6 +116,29 @@ class Visualizer:
 
 
 ## -- Testing ---
+
+def add_test_polygon():
+    vertecies = [
+        (-1, -1),
+        (-1, 1),
+        (0, 1.5),
+        (1,1),
+        (1, -1),
+        (-1, -1)
+    ]
+    position = np.array([-10,0])
+    angle = np.pi/4
+    pol = PolygonEntity(vertecies, position , angle, color=(0,127,0))
+
+    vertecies = []
+    for v in pol._boundary.exterior.coords:
+        pos = np.array(v)
+        vertecies.append(CircularEntity(pos, 0.1))
+
+
+    origo = CircularEntity(position, 0.1)
+    return pol, origo, vertecies
+
 if __name__ == "__main__":
     v = Visualizer(1000, 1000)
 
@@ -131,7 +154,16 @@ if __name__ == "__main__":
     obst = CircularEntity(np.array([10,10]), 1, color=(27, 127,0))
     obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
 
-    arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
+    # add polygon and points in all vertecies to check if the vizalization are the same as backend
+    pol, pol_origo, pol_vertecies = add_test_polygon()
+    pol.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    for ver in pol_vertecies:
+        ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
+
+
+    # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
 
     listner = KeyboardListner()
     listner.start_listner()
@@ -143,16 +175,25 @@ if __name__ == "__main__":
             break
 
         vessel.step(listner.action, 0.2)
+
         v.update_camerea_position(vessel.position)
         v.update_agent(vessel.position, vessel.heading)
         v.update_background()
+
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        # obst.update_pyglet_position(v.,vessel.position, v.pixels_per_unit)
+
+        pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        for ver in pol_vertecies:
+            ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
+        for ver in agent_vertecies:
+            ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
         v.update_screen()
         # test = v.get_rbg_array()
         # print(test)
-        # print( v.get_rbg_array() )
         t +=1
-        # print(f"vessel: {vessel.position}, obst: {obst.position}")
+        print(f"vessel: {vessel.position}, obst: {pol.position}")
  
     v.close()

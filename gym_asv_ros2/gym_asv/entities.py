@@ -28,12 +28,12 @@ class BaseEntity:
 
 
     @abstractmethod
-    def init_boundary(self) -> None:
+    def init_boundary(self, *args, **kwargs) -> None:
         """Initializes the shape of the obstacle. Should be defined in subclasses."""
         raise NotImplementedError
 
     @abstractmethod
-    def init_pyglet_shape(self, scale: int, batch: pyglet.graphics.Batch) -> None:
+    def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None:
         """Intialized the visual shape of the object. Should be defined in subclasses"""
         raise NotImplementedError
 
@@ -80,26 +80,56 @@ class CircularEntity(BaseEntity):
         pass
 
 
-# class RectangularDock(BaseObstacle):
-#
-#     def __init__(self, position: np.ndarray, angle: float, width: float, length: float) -> None:
-#
-#         self.position = position
-#         self.angle = angle
-#         self.width = width
-#         self.length = length
-#
-#         # self._boundary: shapely.geometry.LinearRing
-#         self._pyglet_shape: pyglet.shapes.Circle
-#
-#
-#     def update(self) -> None:
-#         pass
-#
-#     def init_pyglet_shape(self, scale: int, batch: pyglet.graphics.Batch) -> None:
-#         scaled_position = self.position * scale
-#         scaled_radius = self.radius * scale
+class PolygonEntity(BaseEntity):
 
+    def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+        self.position = position
+        self.angle = angle
+        self.color = color
+        self._vertecies = vertecies
+
+        # Shapes
+        self._boundary: shapely.geometry.Polygon
+        self.init_boundary()
+        self._pyglet_shape: pyglet.shapes.Polygon
+
+    def init_boundary(self) -> None:
+        origo_boundary = shapely.geometry.Polygon(self._vertecies)
+        rotated_boundary = shapely.affinity.rotate(origo_boundary, np.rad2deg(self.angle), origin=(0,0))
+        self._boundary = shapely.affinity.translate(rotated_boundary, self.position[0], self.position[1]) # pyright: ignore
+
+
+    def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None: 
+
+        # shapely shape in origo
+        origo_boundary = shapely.geometry.Polygon(self._vertecies)
+        scaled_shape = shapely.affinity.scale(
+            origo_boundary, scale, scale, origin=(0,0)
+        )
+        self._pyglet_shape = pyglet.shapes.Polygon( # pyright: ignore
+            *list(scaled_shape.exterior.coords),
+            color=self.color,
+            batch=batch,
+        )
+
+        # anchor point defaults to first vertex, but should be in origo according to agent_shape
+        scale_offset = scaled_shape.exterior.coords[0]
+        self._pyglet_shape.anchor_position = (-scale_offset[0], -scale_offset[1])
+
+        # Update position and rotation
+        self._pyglet_shape.position = (self.position[0], self.position[1])
+        self._pyglet_shape.rotation = -np.rad2deg(self.angle) # should this me -?
+
+
+    def update(self) -> None:
+        pass
+
+
+# class arrowEnity(PolygonEntity):
+#
+#     def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+#
+#         super().__init__(vertecies, position, angle, color)
 
 
 if __name__ == "__main__":
