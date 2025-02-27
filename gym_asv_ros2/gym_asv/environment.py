@@ -189,8 +189,6 @@ class Environment(gym.Env):
         )
         return obs[np.newaxis, :]  # FIXME: should find a better way to do this
 
-    def reward(self):
-        pass
 
     def closure_reward(self) -> float:
         """The closure reward. Positive reward for moving towards goal and
@@ -226,10 +224,25 @@ class Environment(gym.Env):
         reward = closure_term + heading_term
 
         return float(reward)
-    
-    # def penelizing_reward(self):
-        # obs = self.last_observation.flatten()
-        
+
+    def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
+
+        current_obs = current_observation.flatten()
+        last_obs = last_observation.flatten()
+
+        # distance term
+        current_distance_error = np.linalg.norm(current_obs[3:5])
+        last_distance_error = np.linalg.norm(last_obs[3:5])
+        distance_reward = ( last_distance_error - current_distance_error ) * alpha
+
+        # heading term
+        current_heading_error = abs(current_obs[5])
+        last_heading_error = abs(last_obs[5])
+        heading_reward = ( last_heading_error - current_heading_error ) * beta
+
+        reward = distance_reward + heading_reward
+
+        return float(reward)
 
 
     def _check_termination(self) -> bool:
@@ -279,6 +292,7 @@ class Environment(gym.Env):
 
         # Observe (and check if we reached goal)
         observation = self.observe()
+        
         self.last_observation = observation
 
         # Check if we should end the episode
@@ -328,12 +342,13 @@ class RandomDockEnv(Environment):
     def _setup(self):
         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+
         if reached_goal:
-            dock_x = np.random.randint(-20,20)
-            dock_y = np.random.randint(5,20)
-            self.dock.position[0] = dock_x
-            self.dock.position[1] = dock_y
-        print(f"dock configuration: {self.dock.position}")
+            self.dock.position[0] = np.random.randint(-20,20)
+            self.dock.position[1] = np.random.randint(5,20)
+            self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
+
+        print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
 
 
 ### -- debugging ---
