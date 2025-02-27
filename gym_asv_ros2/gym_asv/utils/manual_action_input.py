@@ -1,8 +1,16 @@
-from pynput import keyboard
+import os
+if "ROS_DISTRO" in os.environ:
+    class keyboard:
+        def Listener(self):
+            pass
+else:
+    from pynput import keyboard
+
 # from pynput.keyboard import Key
 import gymnasium as gym
 import numpy as np
 # from time import time
+
 
 class KeyboardListner:
     def __init__(self) -> None:
