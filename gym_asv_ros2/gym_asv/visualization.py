@@ -116,10 +116,33 @@ class Visualizer:
 
 
 ## -- Testing ---
+
+def add_test_polygon():
+    vertecies = [
+        (-1, -1),
+        (-1, 1),
+        (0, 1.5),
+        (1,1),
+        (1, -1),
+        (-1, -1)
+    ]
+    position = np.array([-10,0])
+    angle = -np.pi/4
+    pol = PolygonEntity(vertecies, position , angle, color=(0,127,0))
+
+    vertecies = []
+    for v in pol._boundary.exterior.coords:
+        pos = np.array(v)
+        vertecies.append(CircularEntity(pos, 0.1))
+
+
+    origo = CircularEntity(position, 0.1)
+    return pol, origo, vertecies
+
 if __name__ == "__main__":
     v = Visualizer(1000, 1000)
 
-    vessel = Vessel(np.array([0, 0, 0, 0, 0, 0]), 1, 1)
+    vessel = Vessel(np.array([0, 0, np.pi/2 - np.pi/4, 0, 0, 0]), 1, 1)
 
     bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
 
