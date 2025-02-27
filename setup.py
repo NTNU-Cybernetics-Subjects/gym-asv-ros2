@@ -15,9 +15,9 @@ setup(
         "setuptools",
         "gymnasium==1.0.0",
         "pyglet==2.1.2",
-        "pynput==1.7.7",
+        # "pynput==1.7.7",
         "shapely==2.0.7",
-        "stable-baselines3==3.4.1",
+        "stable-baselines3==2.4.1",
     ],
     # install_requires=["setuptools"],
     zip_safe=True,
@@ -29,7 +29,8 @@ setup(
     entry_points={
         "console_scripts": [
             "manual_control_node = gym_asv_ros2.ros.manual_control_node:main",
-                "simulator_node = gym_asv_ros2.ros.simulator_node:main"
+            "simulator_node = gym_asv_ros2.ros.simulator_node:main",
+            "agent_node = gym_asv_ros2.ros.agent_node:main"
         ],
     },
 )
