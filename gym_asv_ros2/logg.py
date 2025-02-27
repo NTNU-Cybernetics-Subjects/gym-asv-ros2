@@ -147,16 +147,18 @@ class TrainingCallback(BaseCallback):
                 # Update general metrics
                 self.info_history["successful_episodes"] += int(log_statistics["reached_goal"])
                 self.info_history["total_episodes"] += 1
+                self.logger.record_mean("info/epsiode_reward", log_statistics["episode"]["r"]) # log the reward on episode termination
 
                 record_nested_dict(
                     self.episode_logger.record, log_statistics
                 )
                 self.episode_logger.record("env_id", ids[i])
-                self.episode_logger.dump()
+                self.episode_logger.dump(self.num_timesteps)
 
         # if self.num_timesteps % self.log_frequency == 0:
         #     pass
 
+        # NOTE: Consider saving agent before policy update instead on a fixed frequency
         if self.num_timesteps % self.save_frequency == 0:
             filename = f"{self.agents_dir}/{self.num_timesteps}__{self.info_history['total_episodes']}"
             self.logger.info(f"Saving agent at {filename}")
