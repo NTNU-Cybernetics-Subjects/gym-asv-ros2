@@ -51,12 +51,16 @@ class BaseEntity:
         screen_position = camera_position + ( self.position * scale)
         self._pyglet_shape.position = screen_position.tolist()
 
+        if self.angle:
+            self._pyglet_shape.rotation = -np.rad2deg(self.angle)
+
 
 class CircularEntity(BaseEntity):
     def __init__(self, position: np.ndarray, radius: float, color=(205, 197, 197)) -> None:
         self.position = position
         self.radius = radius
         self.color = color
+        self.angle = None
 
         self._boundary: shapely.geometry.LineString
         self.init_boundary()
@@ -125,11 +129,12 @@ class PolygonEntity(BaseEntity):
         pass
 
 
-# class arrowEnity(PolygonEntity):
-#
-#     def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
-#
-#         super().__init__(vertecies, position, angle, color)
+class arrowEnity(PolygonEntity):
+
+    def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+
+
+        super().__init__(vertecies, position, angle, color)
 
 
 if __name__ == "__main__":
