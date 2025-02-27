@@ -1,3 +1,4 @@
+# from __future__ import annotations
 from typing import NamedTuple
 
 import matplotlib.pyplot as plt
@@ -5,6 +6,7 @@ import numpy as np
 import shapely
 from numpy import linalg
 from scipy.integrate import solve_ivp
+from entities import BaseEntity
 
 import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 
@@ -36,6 +38,17 @@ class ThrusterParams(NamedTuple):
 
     max_forward_force: float = 55.21
     max_backward_force: float = 27.5
+
+
+class LidarSim:
+
+    def __init__(self) -> None:
+        pass
+
+    def simulate_sensor(self, p0_position: np.ndarray, obstacles: list[BaseEntity] ) -> None:
+        pass
+        
+
 
 
 class Vessel:
