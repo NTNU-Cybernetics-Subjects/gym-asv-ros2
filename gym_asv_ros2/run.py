@@ -10,7 +10,6 @@ from stable_baselines3 import PPO
 import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
-from torch.serialization import FILE_LIKE
 
 from gym_asv_ros2.gym_asv.environment import Environment, RandomDockEnv
 
@@ -25,8 +24,8 @@ install_rich_traceback()
 def make_env_subproc(render_mode=None):
 
     def _init():
-        # env = Environment()
-        env = RandomDockEnv(render_mode=None)
+        # env = Environment(render_mode)
+        env = RandomDockEnv(render_mode)
         return env
 
     return _init
@@ -51,9 +50,8 @@ def train(file_storage: FileStorage):
     env_count = 4
     # total_timesteps = env_count * 1000000
     total_timesteps = 1000000
-    env = SubprocVecEnv([make_env_subproc(render_mode="None") for _ in range(env_count)])
+    env = SubprocVecEnv([make_env_subproc(render_mode=None) for _ in range(env_count)])
     env = VecMonitor(env)
-    # env = Environment()
     
     model = PPO(
         "MlpPolicy",
@@ -79,9 +77,8 @@ def enjoy(file_storage: FileStorage, agent: str, time_stamp: str):
         return
     video_path = str(file_storage.videos / time_stamp )
 
-    # env = SubprocVecEnv([ make_env_subproc(render=True) ])
-    env = RandomDockEnv(render_mode="rgb_array")
-    env = RecordVideo(env, video_path, episode_trigger=lambda t: True)
+    env_func = make_env_subproc(render_mode="rgb_array")
+    env = RecordVideo(env_func(), video_path, episode_trigger=lambda t: True)
     model = PPO.load(agent_path, env=env)
 
     listner = KeyboardListner()

@@ -5,7 +5,7 @@ import numpy as np
 import pyglet
 import shapely.affinity
 
-from gym_asv_ros2.gym_asv.obstacles import BaseObstacle, CircularObstacle
+from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
@@ -103,6 +103,25 @@ class Visualizer:
         arr = arr.reshape(self.window.height, self.window.width, 4)
 
         return arr[::-1, :, 0:3]
+    
+    def shape_in_window(self, shape: pyglet.shapes.ShapeBase) -> bool:
+        """Checks if a shape is inside or outside the window.
+            If it is inside drawing for the shape is enabled, and if it is
+            outside drawing is dissabled
+        """
+
+        visible = True
+        # Out of bounds x
+        if shape.position[0] > self.window.width or shape.position[0] < 0:
+            visible = False
+
+        # out of bounds y
+        if shape.position[1] > self.window.height or shape.position[1] < 0:
+            visible = False
+        
+        shape.visible = visible
+        return visible
+
 
     def update_screen(self):
         self.window.clear()
@@ -127,7 +146,7 @@ def add_test_polygon():
         (-1, -1)
     ]
     position = np.array([-10,0])
-    angle = -np.pi/4
+    angle = np.pi/4
     pol = PolygonEntity(vertecies, position , angle, color=(0,127,0))
 
     vertecies = []
@@ -151,8 +170,19 @@ if __name__ == "__main__":
     v.update_agent(vessel.position, vessel.heading)
 
     # Add obstacle:
-    obst = CircularObstacle(np.array([10,10]), 1, color=(27, 127,0))
+    obst = CircularEntity(np.array([10,10]), 1, color=(27, 127,0))
     obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
+
+    # add polygon and points in all vertecies to check if the vizalization are the same as backend
+    pol, pol_origo, pol_vertecies = add_test_polygon()
+    pol.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    for ver in pol_vertecies:
+        ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
+
+
+    # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
 
     listner = KeyboardListner()
     listner.start_listner()
@@ -164,16 +194,27 @@ if __name__ == "__main__":
             break
 
         vessel.step(listner.action, 0.2)
+
         v.update_camerea_position(vessel.position)
         v.update_agent(vessel.position, vessel.heading)
         v.update_background()
+
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        # obst.update_pyglet_position(v.,vessel.position, v.pixels_per_unit)
+        circle_visible = v.shape_in_window(obst.pyglet_shape)
+        print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
+
+        pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        for ver in pol_vertecies:
+            ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
+        # for ver in agent_vertecies:
+            # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
         v.update_screen()
-        test = v.get_rbg_array()
-        print(test)
-        # print( v.get_rbg_array() )
+        # test = v.get_rbg_array()
+        # print(test)
         t +=1
-        print(f"vessel: {vessel.position}, obst: {obst.position}")
+        # print(f"vessel: {vessel.position}, obst: {pol.position}")
  
     v.close()

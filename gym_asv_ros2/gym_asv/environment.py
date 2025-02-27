@@ -5,10 +5,11 @@ from pathlib import Path
 import gymnasium as gym
 import numpy as np
 
+import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.obstacles import CircularObstacle
+from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
@@ -40,7 +41,14 @@ class Environment(gym.Env):
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
 
         # NOTE: Define dock as a circle for now.
-        self.dock = CircularObstacle(np.array([10, 10]), 1, (0, 127, 0))
+        # self.dock = CircularEntity(np.array([10, 10]), 1, (0, 127, 0))
+
+        self.dock = PolygonEntity(
+            list(self.vessel.boundary.exterior.coords),
+            position=np.array([10,10]),
+            angle=np.pi/8,
+            color=(0,127,0)
+        )
 
         self.obstacles = []
 
@@ -48,7 +56,7 @@ class Environment(gym.Env):
             low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32
         )
         # NOTE: observation space is currently only navigation
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 5))
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6))
 
         self._info = {}
         self.episode_summary = {}
@@ -154,12 +162,18 @@ class Environment(gym.Env):
         dock_position = self.dock.position
         relative_dock_position = dock_position - vessel_position
 
+        dock_angle = self.dock.angle
+        dock_heading_error = geom.princip(dock_angle - vessel_heading)
+        # print(f"heading_error: {dock_heading_error}")
+
         # Reached goal?
-        min_goal_dist = (
-            self.dock.radius
-        )  # We need to be inside the raidus of the dock circle
+        # min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
+        min_goal_dist = self.vessel.width/2
         abs_dist_to_goal = np.linalg.norm(relative_dock_position)
-        if abs_dist_to_goal < min_goal_dist:
+
+        min_heading_error = np.deg2rad(10)
+
+        if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
             self.reached_goal = True
 
@@ -170,12 +184,16 @@ class Environment(gym.Env):
                 vessel_heading,
                 relative_dock_position[0],
                 relative_dock_position[1],
+                dock_heading_error
             ]
         )
         return obs[np.newaxis, :]  # FIXME: should find a better way to do this
 
+
     def closure_reward(self) -> float:
-        """The closure reward."""
+        """The closure reward. Positive reward for moving towards goal and
+        lowering heading error, Negative reward for increasing goal distance
+        and increasing heading error"""
         reward = 0
         if self.collision:
             reward = -1000
@@ -185,7 +203,7 @@ class Environment(gym.Env):
             reward = 1000
             return reward
 
-        # NOTE: not sure if the last postion is the optimal way to go
+        # Closure term
         last_vessel_position = self.vessel._prev_states[-1, 0:2]
         current_vessel_position = self.vessel.position
         goal_position = self.dock.position
@@ -194,9 +212,38 @@ class Environment(gym.Env):
         last_relative_dist_to_goal = np.linalg.norm(
             goal_position - last_vessel_position
         )
-        reward = last_relative_dist_to_goal - relative_dist_to_goal
+        closure_term = last_relative_dist_to_goal - relative_dist_to_goal
+
+        # Heading term
+        last_vessel_heading = self.vessel._prev_states[-1, 2]
+        current_vessel_heading = self.vessel.heading
+        last_vessel_heading_error = np.abs(geom.princip(self.dock.angle - last_vessel_heading))
+        current_vessel_heading_error = np.abs(geom.princip(self.dock.angle - current_vessel_heading))
+        heading_term = last_vessel_heading_error - current_vessel_heading_error
+
+        reward = closure_term + heading_term
 
         return float(reward)
+
+    def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
+
+        current_obs = current_observation.flatten()
+        last_obs = last_observation.flatten()
+
+        # distance term
+        current_distance_error = np.linalg.norm(current_obs[3:5])
+        last_distance_error = np.linalg.norm(last_obs[3:5])
+        distance_reward = ( last_distance_error - current_distance_error ) * alpha
+
+        # heading term
+        current_heading_error = abs(current_obs[5])
+        last_heading_error = abs(last_obs[5])
+        heading_reward = ( last_heading_error - current_heading_error ) * beta
+
+        reward = distance_reward + heading_reward
+
+        return float(reward)
+
 
     def _check_termination(self) -> bool:
         """Check if if episode is done due to succsess/fail"""
@@ -245,6 +292,7 @@ class Environment(gym.Env):
 
         # Observe (and check if we reached goal)
         observation = self.observe()
+        
         self.last_observation = observation
 
         # Check if we should end the episode
@@ -294,18 +342,19 @@ class RandomDockEnv(Environment):
     def _setup(self):
         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+
         if reached_goal:
-            dock_x = np.random.randint(-20,20)
-            dock_y = np.random.randint(5,20)
-            self.dock.position[0] = dock_x
-            self.dock.position[1] = dock_y
-        print(f"dock configuration: {self.dock.position}")
+            self.dock.position[0] = np.random.randint(-20,20)
+            self.dock.position[1] = np.random.randint(5,20)
+            self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
+
+        print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
 
 
 ### -- debugging ---
 def play():
     # env = Environment(render=True)
-    env = RandomDockEnv(render=True)
+    env = RandomDockEnv(render_mode="human")
     env.reset()
     env.render()
 
@@ -319,6 +368,8 @@ def play():
 
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
+        # print(observation)
+        # print(reward)
 
         # print(env.cumulative_reward)
         if done:
@@ -330,6 +381,7 @@ def play():
         # print(0.1/run_time)
         # print(end_time - start_time)
         # time.sleep(0.2 - run_time)
+        # print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
 
     env.close()
 

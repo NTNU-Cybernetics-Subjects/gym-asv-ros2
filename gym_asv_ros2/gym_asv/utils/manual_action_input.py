@@ -16,36 +16,42 @@ class KeyboardListner:
         self.listner = None
 
     def press(self, k):
-        if k.char == "u":
-            self.action[0] = 0.5
+        try: 
+            if k.char == "u":
+                self.action[0] = 0.5
 
-        if k.char == "i":
-            self.action[1] = 0.5
+            if k.char == "i":
+                self.action[1] = 0.5
 
-        if k.char == "j":
-            self.action[0] = -0.5
+            if k.char == "j":
+                self.action[0] = -0.5
 
-        if k.char == "k":
-            self.action[1] = -0.5
+            if k.char == "k":
+                self.action[1] = -0.5
+        except AttributeError:
+            pass
 
     def release(self, k):
-        if k.char == "r":
-            self.restart = True
+        try:
+            if k.char == "r":
+                self.restart = True
 
-        if k.char == "q":
-            self.quit = True
+            if k.char == "q":
+                self.quit = True
 
-        if k.char == "u":
-            self.action[0] = 0
+            if k.char == "u":
+                self.action[0] = 0
 
-        if k.char == "i":
-            self.action[1] = 0
+            if k.char == "i":
+                self.action[1] = 0
 
-        if k.char == "j":
-            self.action[0] = 0
+            if k.char == "j":
+                self.action[0] = 0
 
-        if k.char == "k":
-            self.action[1] = 0
+            if k.char == "k":
+                self.action[1] = 0
+        except AttributeError:
+            pass
 
         # print(self.action)
 
