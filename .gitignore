@@ -3,3 +3,4 @@
 .python-version
 gym_asv_ros2/test*.py
 training
+pyrightconfig.json
