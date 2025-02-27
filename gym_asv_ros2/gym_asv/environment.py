@@ -56,7 +56,7 @@ class Environment(gym.Env):
             low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32
         )
         # NOTE: observation space is currently only navigation
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6))
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6), dtype=np.float32)
 
         self._info = {}
         self.episode_summary = {}
