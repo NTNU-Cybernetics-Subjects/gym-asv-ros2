@@ -1,8 +1,10 @@
-import pyglet
-import shapely.geometry
-import shapely.affinity
-import numpy as np
 from abc import ABC, abstractmethod
+
+import numpy as np
+import pyglet
+import shapely.affinity
+import shapely.geometry
+
 
 class BaseEntity:
 
@@ -122,19 +124,77 @@ class PolygonEntity(BaseEntity):
 
         # Update position and rotation
         self._pyglet_shape.position = (self.position[0], self.position[1])
-        self._pyglet_shape.rotation = -np.rad2deg(self.angle) # should this me -?
+        self._pyglet_shape.rotation = -np.rad2deg(self.angle)
 
 
     def update(self) -> None:
         pass
 
 
-class arrowEnity(PolygonEntity):
+class LineEntity(BaseEntity):
 
-    def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+    def __init__(self, start_position: np.ndarray, end_position: np.ndarray, color: tuple = (0,0,0)) -> None:
+        """A Line """
+        # TODO: consider having the option to use position, angle as input instead of start, end
+
+        # Keep start position as self.position to keep same interface as Base
+        self.position = start_position
+        self.end_position = end_position
+
+        self.angle = None # pyright: ignore (Does not support angle atm)
+
+        self.color = color
+
+        self._boundary: shapely.LineString
+        self.init_boundary()
+        self._pyglet_shape: pyglet.shapes.Line
 
 
-        super().__init__(vertecies, position, angle, color)
+    def init_boundary(self, *args, **kwargs) -> None:
+        """Initializes the shape of the obstacle."""
+        self._boundary = shapely.LineString([self.position, self.end_position]) # pyright: ignore
+
+
+    def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None:
+        """Intialized the visual shape of the object."""
+        start_position = self.position * scale
+        end_position = self.end_position * scale
+        self._pyglet_shape = pyglet.shapes.Line(start_position[0], start_position[1], # pyright: ignore
+                                                end_position[0], end_position[1],
+                                                batch=batch,
+                                                color=self.color
+                                                )
+
+
+    def update(self) -> None:
+        """Updates the obstacle if it is dynamic. Should be defined in
+        subclasses. If the funciton is not defined, the obstacle is assumed
+        static."""
+        pass
+
+    def update_pyglet_position(self, camera_position: np.ndarray, scale: float) -> None:
+        """Updates the pyglet shape according to a camera position. Extends the
+            Base method by also updating the end position"""
+        super().update_pyglet_position(camera_position, scale) # updates position and angle
+
+        # Update the end position
+        screen_end_position = camera_position + ( self.end_position * scale)
+        self._pyglet_shape.x2 = screen_end_position[0]
+        self._pyglet_shape.y2 = screen_end_position[1]
+
+
+
+
+
+
+
+# class arrowEnity(PolygonEntity):
+#
+#     def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+#
+#
+#         super().__init__(vertecies, position, angle, color)
+
 
 
 if __name__ == "__main__":
