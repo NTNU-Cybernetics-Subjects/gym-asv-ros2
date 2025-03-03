@@ -1,11 +1,12 @@
 import time
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import pyglet
 import shapely.affinity
 
-from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, PolygonEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
@@ -128,6 +129,7 @@ class Visualizer:
         self.batch.draw()
         self.window.flip()
 
+
     def close(self):
         self.window.close()
 
@@ -135,7 +137,6 @@ class Visualizer:
 
 
 ## -- Testing ---
-
 def add_test_polygon():
     vertecies = [
         (-1, -1),
@@ -157,6 +158,67 @@ def add_test_polygon():
 
     origo = CircularEntity(position, 0.1)
     return pol, origo, vertecies
+
+
+class TestCase:
+    """Test class for setting up a game environment quicly,"""
+
+    def __init__(self, obstacles: list[BaseEntity] | None = None) -> None:
+        self.viewer = Visualizer(1000, 1000)
+
+        self.vessel = Vessel(np.array([0, 0, np.pi/2, 0, 0, 0]), 1, 1)
+
+        self.obstacles = obstacles if obstacles else []
+
+    def setup(self):
+        pass
+
+    def update(self):
+        pass
+
+    def add_obstacles(self, obstacles: list[BaseEntity]):
+        self.obstacles.extend(obstacles)
+
+    def _init_base(self):
+        bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
+
+        self.viewer.add_backround(bg_img_path)
+        self.viewer.add_agent(self.vessel.boundary)
+        self.viewer.update_agent(self.vessel.position, self.vessel.heading)
+
+        for obst in self.obstacles:
+            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+    
+    def game_loop(self, setup: Callable | None = None, update: Callable | None = None):
+
+        # Base setup
+        self._init_base()
+        # Custom setup
+        setup() if setup else self.setup()
+
+        # Setup key input
+        key_input = KeyboardListner()
+        key_input.start_listner()
+
+        t = 0
+        while True:
+            if key_input.quit:
+                break
+
+            self.vessel.step(key_input.action, 0.2)
+
+            self.viewer.update_camerea_position(self.vessel.position)
+            self.viewer.update_agent(self.vessel.position, self.vessel.heading)
+            self.viewer.update_background()
+
+            for obst in self.obstacles:
+                obst.update()
+                obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+            update() if update else self.update()
+
+            self.viewer.update_screen()
+            t +=1
 
 if __name__ == "__main__":
     v = Visualizer(1000, 1000)
@@ -180,6 +242,13 @@ if __name__ == "__main__":
     for ver in pol_vertecies:
         ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
     # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
+    
+    # add line:
+    line = LineEntity(np.array([2,2]), np.array([2,10]))
+    line.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    line_start_point = CircularEntity(line.position, 0.1, color=(255,0,0))
+    line_start_point.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # line = pyglet.shapes.Line(0,0, 20, 20, batch=v.batch, thickness=3)
 
 
     # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
@@ -207,6 +276,9 @@ if __name__ == "__main__":
         pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         for ver in pol_vertecies:
             ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
+        line.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+        line_start_point.update_pyglet_position(v.camera_position, v.pixels_per_unit)
 
         # for ver in agent_vertecies:
             # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
