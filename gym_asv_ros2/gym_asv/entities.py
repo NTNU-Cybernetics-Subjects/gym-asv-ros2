@@ -11,7 +11,7 @@ class BaseEntity:
     def __init__(self) -> None:
         """Base attributes of a obstacle."""
         self.position: np.ndarray
-        self.angle: float
+        self.angle: float | None
 
         self._boundary: shapely.Geometry
         self._pyglet_shape: pyglet.shapes.ShapeBase
@@ -88,7 +88,7 @@ class CircularEntity(BaseEntity):
 
 class PolygonEntity(BaseEntity):
 
-    def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
+    def __init__(self, vertecies: list[tuple], position: np.ndarray, angle: float, color: tuple) -> None:
         self.position = position
         self.angle = angle
         self.color = color
@@ -129,6 +129,27 @@ class PolygonEntity(BaseEntity):
 
     def update(self) -> None:
         pass
+
+
+class RectangularEntity(PolygonEntity):
+
+    def __init__(self, position: np.ndarray, width: float, height: float, angle: float=0.0, color: tuple = (255,255,255)) -> None:
+        self.width = width
+        self.height = height
+        super().__init__(self._calculate_vertecies(width, height), position, angle, color)
+
+
+    def _calculate_vertecies(self, width, height):
+        w = width/2
+        h = height/2
+        vertecies = [
+            (-w, -h),
+            (-w, h),
+            (w, h),
+            (w, -h)
+        ]
+        print(f"Vertecies are {vertecies}")
+        return vertecies
 
 
 class LineEntity(BaseEntity):
