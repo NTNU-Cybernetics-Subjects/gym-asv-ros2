@@ -14,11 +14,11 @@ pip install -r requirments.txt
 ```bash
 python -m gym_asv_ros2.run $MODE
 ```
+
 where `$MODE` is train/enjoy
 
 - `--logid` will set the name of the logfolder to use.
 - `--agent` will set the agent to use (To be used in combination with enjoy)
-
 
 ## Usage with ROS
 
@@ -37,6 +37,5 @@ Launch the agent node:
 ```bash
 ros2 run gym_asv_ros2 agent_node --ros-args -p agent:=<agent_path>
 ```
+
 where `<agent_path>` is the path to where a trained agent is stored.
-
-
