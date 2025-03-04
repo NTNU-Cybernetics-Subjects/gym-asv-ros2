@@ -4,7 +4,7 @@ import numpy as np
 import pyglet
 import shapely
 import gym_asv_ros2.gym_asv.utils.geom_utils as geom
-from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, RectangularEntity
 import time
 
 # testing
@@ -23,7 +23,7 @@ class BaseSensor:
 
 class LidarSimulator:
     
-    def __init__(self, max_range: float, num_rays: int):
+    def __init__(self, max_range: float, num_rays: float):
         self.max_range = max_range # [m]
 
         self.num_rays = num_rays
@@ -72,15 +72,25 @@ class LidarSimulator:
                 if intersection.is_empty:
                     continue
 
+
                 if isinstance(intersection, shapely.Point):
                     if start_point.distance(intersection) < start_point.distance(current_closet_point):
                         current_closet_point = intersection
 
-                if isinstance(intersection, shapely.MultiPoint):
+                elif isinstance(intersection, shapely.MultiPoint):
                     for point in intersection.geoms:
                         if start_point.distance(point) < start_point.distance(current_closet_point):
                             current_closet_point = point
-                 
+
+                elif isinstance(intersection, shapely.LineString):
+                    proj_distance = intersection.project(start_point)
+                    intersecting_point = intersection.interpolate(proj_distance)
+                    if start_point.distance(intersecting_point) < start_point.distance(current_closet_point):
+                        current_closet_point = intersecting_point
+
+                else:
+                    print(f"[Lidar.sens()] intersection object not supported: {intersection}")
+                  
             self.update_ray_line(i, end_point=current_closet_point)
             lidar_readings[i] = start_point.distance(current_closet_point)
 
@@ -89,10 +99,11 @@ class LidarSimulator:
 
 if __name__ == "__main__":
     obst1 = CircularEntity(np.array([10,10]), 1)
+    obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(20, 2)
-    game_test = TestCase([obst1])
+    lidar = LidarSimulator(20, 10)
+    game_test = TestCase([obst1, obst2])
 
 
     pyglet_lines = []
@@ -108,7 +119,8 @@ if __name__ == "__main__":
         for line in lidar._ray_lines:
             line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
         
-        print(f"points: {[ray_line.end_position for ray_line in lidar._ray_lines]}, readings: {lidar_readings}")
+        # print(lidar_readings)
+        # print(f"points: {[ray_line.end_position for ray_line in lidar._ray_lines]}, readings: {lidar_readings}")
         # for i, ray_line in enumerate(lidar._ray_lines):
         #     print(f"at {ray_line.end_position} distance is {lidar_readings[i]}")
 

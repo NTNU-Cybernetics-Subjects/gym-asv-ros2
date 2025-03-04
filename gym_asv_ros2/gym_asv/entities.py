@@ -148,7 +148,7 @@ class RectangularEntity(PolygonEntity):
             (w, h),
             (w, -h)
         ]
-        print(f"Vertecies are {vertecies}")
+        # print(f"Vertecies are {vertecies}")
         return vertecies
 
 
