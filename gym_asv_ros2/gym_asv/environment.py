@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import time
 from pathlib import Path
+from typing import Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -9,16 +10,21 @@ import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.entities import CircularEntity, PolygonEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, PolygonEntity, RectangularEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
+from gym_asv_ros2.gym_asv.sensors import LidarSimulator
+
+# Better debug
+from rich.traceback import install as install_rich_traceback
+install_rich_traceback()
 
 
 class Environment(gym.Env):
     metadata = {"render_modes": [None, "human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+    def __init__(self, render_mode=None, obstacles: Sequence[BaseEntity] | None = None, *args, **kwargs) -> None:
 
         # Set render mode
         if render_mode not in self.metadata["render_modes"]:
@@ -29,7 +35,7 @@ class Environment(gym.Env):
         self.total_t_steps = 0
         self.t_step = 0
         self.step_size = 0.2
-        self.max_episode_timesteps = 5000
+        self.max_episode_timesteps = 4500
         self.rng = None
 
         self.last_reward = 0
@@ -50,11 +56,12 @@ class Environment(gym.Env):
             color=(0,127,0)
         )
 
-        self.obstacles = []
+        self.obstacles = obstacles if obstacles else []
 
         self.action_space = gym.spaces.Box(
             low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32
         )
+
         # NOTE: observation space is currently only navigation
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6), dtype=np.float32)
 
@@ -63,7 +70,7 @@ class Environment(gym.Env):
         self.last_observation = np.array([])
 
         # Set up the environment
-        self._setup()
+        self._setup() # TODO: Mabye only call this in reset to not confuse
 
         # Init visualization
         if self.render_mode:
@@ -74,6 +81,7 @@ class Environment(gym.Env):
 
 
     def _setup(self):
+        """This is called on reset to setup the episode."""
         pass
 
     def init_visualization(self):
@@ -86,6 +94,13 @@ class Environment(gym.Env):
 
         # Init the dock
         self.dock.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+        
+        # Init lidar Visuals
+        for ray_line in self.lidar_sensor._ray_lines:
+            ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+        print("[env] Visualizatin intialized.")
+
 
     def seed(self, seed=None) -> list[int]:
         """Reseeds the random number generator used in the environment.
@@ -109,6 +124,16 @@ class Environment(gym.Env):
         # Update obstacle visualization
         for obst in self.obstacles:
             obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+        # Update lidar visualization
+        for ray_line in self.lidar_sensor._ray_lines:
+            ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+            # Only draw the rays that are hitting something
+            visible = False
+            if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+                visible = True
+            ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
         # if mode == "human":
@@ -165,6 +190,16 @@ class Environment(gym.Env):
         dock_angle = self.dock.angle
         dock_heading_error = geom.princip(dock_angle - vessel_heading)
         # print(f"heading_error: {dock_heading_error}")
+
+        lidar_readings = self.lidar_sensor.sense(vessel_position, vessel_heading, self.obstacles)
+
+        # Check collision
+        collision = np.any(lidar_readings < self.vessel.width)
+        self.collision = collision
+        
+        # for obst in self.obstacles:
+        #     collision = self.vessel.boundary.overlaps(obst.boundary)
+            
 
         # Reached goal?
         # min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
@@ -295,10 +330,6 @@ class Environment(gym.Env):
         
         self.last_observation = observation
 
-        # Check if we should end the episode
-        terminated = self._check_termination()
-        truncated = self._check_truncated()
-
         # Reward function
         reward = self.closure_reward()
         self.last_reward = reward
@@ -306,6 +337,10 @@ class Environment(gym.Env):
 
         self.update_info()
         info = self._info
+
+        # Check if we should end the episode
+        terminated = self._check_termination()
+        truncated = self._check_truncated()
 
         # Episode finished
         if terminated or truncated:
@@ -350,11 +385,51 @@ class RandomDockEnv(Environment):
 
         print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
 
+class RandomDockEnvObstacles(Environment):
+
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+
+        # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
+        # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0) 
+        super().__init__(render_mode, obstacles=None, *args, **kwargs)
+
+        self.dock_obst = RectangularEntity(
+            self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length +2),
+            width=1,
+            height=4,
+            angle= self.dock.angle
+        )
+        if render_mode: # Init the shape since it is added after calling super().__init__
+            self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+        self.obstacles.append(self.dock_obst)
+        
+    
+    def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
+        x = position[0] + lenght * np.cos(angle)
+        y = position[1] + lenght * np.sin(angle)
+        return np.array([x,y])
+
+    def _setup(self):
+        # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
+        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+
+        if reached_goal:
+            self.dock.position[0] = np.random.randint(-20,20)
+            self.dock.position[1] = np.random.randint(5,20)
+            self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
+
+            self.dock_obst.position = self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2)
+            self.dock_obst.angle = self.dock.angle
+            self.dock_obst.init_boundary()
+
+        print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
+
 
 ### -- debugging ---
 def play():
     # env = Environment(render=True)
-    env = RandomDockEnv(render_mode="human")
+    env = RandomDockEnvObstacles(render_mode="human")
     env.reset()
     env.render()
 
@@ -373,7 +448,7 @@ def play():
 
         # print(env.cumulative_reward)
         if done:
-            # print(reward)
+            print(env.cumulative_reward)
             env.reset()
         env.render()
         end_time = time.time()
