@@ -44,11 +44,13 @@ class Environment(gym.Env):
         self.reached_goal = False
         self.collision = False
 
+        self.n_navigation_features = 6
+        self.n_perception_features = 40
+
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
+        self.lidar_sensor = LidarSimulator(20, self.n_perception_features)
 
-        # NOTE: Define dock as a circle for now.
-        # self.dock = CircularEntity(np.array([10, 10]), 1, (0, 127, 0))
-
+        # Use same shape on goal position as vessel
         self.dock = PolygonEntity(
             list(self.vessel.boundary.exterior.coords),
             position=np.array([10,10]),
@@ -63,7 +65,8 @@ class Environment(gym.Env):
         )
 
         # NOTE: observation space is currently only navigation
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, 6), dtype=np.float32)
+        obs_shape = (1, self.n_navigation_features + self.n_perception_features)
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32)
 
         self._info = {}
         self.episode_summary = {}
@@ -212,7 +215,7 @@ class Environment(gym.Env):
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
             self.reached_goal = True
 
-        obs = np.array(
+        nav = np.array(
             [
                 vessel_velocity[0],
                 vessel_velocity[1],
@@ -222,6 +225,7 @@ class Environment(gym.Env):
                 dock_heading_error
             ]
         )
+        obs = np.concatenate((nav, lidar_readings))
         return obs[np.newaxis, :]  # FIXME: should find a better way to do this
 
 
