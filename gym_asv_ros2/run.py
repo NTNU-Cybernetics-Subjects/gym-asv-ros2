@@ -37,15 +37,15 @@ def train(file_storage: FileStorage):
     if not proceed:
         return
 
-    # hyperparams = {
-    #     "learning_rate": 2e-4,  # Default 2.5e-4
-    #     "n_steps": 1024,  # Default 128
-    #     "batch_size": 32,  # Default 4
-    #     "n_epochs": 4,  # Default 4
-    #     "gamma": 0.999,  # Default 0.99
-    #     "gae_lambda": 0.98,  # Default 0.95
-    #     "ent_coef": 0.01,  # Default 0.01
-    # }
+    hyperparams = {
+        "learning_rate": 2e-4,  # Default 2.5e-4
+        "n_steps": 1024,  # Default 128
+        "batch_size": 64,  # Default 4
+        "n_epochs": 4,  # Default 4
+        "gamma": 0.999,  # Default 0.99
+        "gae_lambda": 0.98,  # Default 0.95
+        "ent_coef": 0.01,  # Default 0.01
+    }
 
     env_count = 4
     # total_timesteps = env_count * 1000000
@@ -58,7 +58,7 @@ def train(file_storage: FileStorage):
         env=env,
         device="cpu",
         verbose=True,
-        # **hyperparams,
+        **hyperparams,
     )
 
     model.set_logger(sb3_logger.configure(str(file_storage.info), ["csv", "stdout", "tensorboard"]))
