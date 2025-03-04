@@ -36,7 +36,7 @@ class ThrusterParams(NamedTuple):
     left_thrust_dissplacement: float = -0.285
     right_arm_dissplacement: float = 0.285
 
-    max_forward_force: float = 55.21
+    max_forward_force: float = 55.21 - 11.21 # Lower force because we get realistic high max speed (This gives max speed = 3 m/s)
     max_backward_force: float = 27.5
 
 
@@ -227,19 +227,41 @@ if __name__ == '__main__':
     init_state = np.zeros((6,))
     # print(init_state)
     vessel = Vessel(init_state, 1, 2)
-    print(list( vessel.boundary.exterior.coords ))
+    # print(list( vessel.boundary.exterior.coords ))
 
-    action = np.array([1,0])
+    action1 = np.array([-1.0,1.0])
+    action2 = np.array([1.0,-1.0])
 
-    for i in range(100):
-        vessel.step(action, 0.1)
+    for i in range(200):
+
+        if i < 100:
+            a = action1
+        else:
+            a = action2
+
+        vessel.step(a, 0.1)
         # print(vessel._prev_states)
         # print(vessel.boundary)
         # print(vessel.position)
-    print(vessel._prev_states.shape)
+
+    # print(vessel._prev_states.shape)
+    x_ned = vessel._prev_states[:,0]
+    y_ned = vessel._prev_states[:,1]
+    psi = vessel._prev_states[:,2]
+    surge = vessel._prev_states[:,3]
+    sway = vessel._prev_states[:,4]
+    yaw_rate = vessel._prev_states[:, 5]
+
+    # t = np.arange(0, len(surge))
+    print(np.min(yaw_rate), np.max(yaw_rate))
+    # plt.plot(t, surge)
+
+
     # t = np.arange(0, vessel._step_counter+1)
     # plt.plot(t, vessel._prev_states[:,0])
-    plt.plot(vessel._prev_states[:,0], vessel._prev_states[:,1])
+    # plt.plot(vessel._prev_states[:,0], vessel._prev_states[:,1])
+    # t = len(vessel._prev_states[:,0])
+    # plt.plot(t, vessel._prev_states[:,0])
     plt.show()
     # print(t, vessel._prev_states[:,0])
 
