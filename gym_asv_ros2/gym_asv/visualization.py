@@ -6,7 +6,7 @@ import numpy as np
 import pyglet
 import shapely.affinity
 
-from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, PolygonEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, PolygonEntity, RectangularEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
@@ -250,6 +250,9 @@ if __name__ == "__main__":
     line_start_point.init_pyglet_shape(v.pixels_per_unit, v.batch)
     # line = pyglet.shapes.Line(0,0, 20, 20, batch=v.batch, thickness=3)
 
+    # Add rectangle 
+    rect = RectangularEntity(np.array([10.0, 0.0]), 1.0,1.0, np.pi/4)
+    rect.init_pyglet_shape(v.pixels_per_unit, v.batch)
 
     # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
 
@@ -270,7 +273,7 @@ if __name__ == "__main__":
 
         obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         circle_visible = v.shape_in_window(obst.pyglet_shape)
-        print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
+        # print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
 
         pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
@@ -279,6 +282,8 @@ if __name__ == "__main__":
 
         line.update_pyglet_position(v.camera_position, v.pixels_per_unit)
         line_start_point.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+
+        rect.update_pyglet_position(v.camera_position, v.pixels_per_unit)
 
         # for ver in agent_vertecies:
             # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
