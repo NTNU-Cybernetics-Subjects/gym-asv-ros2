@@ -61,7 +61,7 @@ def train(file_storage: FileStorage):
         env=env,
         device="cpu",
         verbose=True,
-        **hyperparams,
+        # **hyperparams,
     )
 
     model.set_logger(sb3_logger.configure(str(file_storage.info), ["csv", "stdout", "tensorboard"]))

@@ -50,6 +50,7 @@ class LidarSimulator:
 
 
 
+    # FIXME: consider write with numpy logic to optimize running time.
     def sense(self, position: np.ndarray, heading: float, obstacles: list[BaseEntity]):
         """TODO"""
 
@@ -102,27 +103,29 @@ if __name__ == "__main__":
     obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(20, 10)
+    lidar = LidarSimulator(20, 90)
     game_test = TestCase([obst1, obst2])
 
 
     pyglet_lines = []
     def setup():
-        for ray_line in lidar._ray_lines:
+        pass
+        # for ray_line in lidar._ray_lines:
             # print(f"initializing ray_lines {ray_line}")
-            ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+            # ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
 
 
     def update():
         lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
         # Update ray_lines
-        for line in lidar._ray_lines:
-            line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        # for line in lidar._ray_lines:
+            # line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
         
         # print(lidar_readings)
         # print(f"points: {[ray_line.end_position for ray_line in lidar._ray_lines]}, readings: {lidar_readings}")
         # for i, ray_line in enumerate(lidar._ray_lines):
         #     print(f"at {ray_line.end_position} distance is {lidar_readings[i]}")
+        print(lidar_readings)
 
     game_test.game_loop(setup=setup,update=update)
 

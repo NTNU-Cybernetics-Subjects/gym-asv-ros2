@@ -64,8 +64,6 @@ class Environment(gym.Env):
 
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float64)
 
-        # NOTE: observation space is currently only navigation
-        # obs_shape = (1, self.n_navigation_features + self.n_perception_features)
         obs_low = np.array([
             -2.0, -0.3, -np.pi, -100, -100, -np.pi, # Navigation
             *[0.0 for _ in range(self.n_perception_features)] # Perceptioin
