@@ -1,4 +1,5 @@
 import os
+# FIXME: This is not a viable solution, does only work on my setup
 if "ROS_DISTRO" in os.environ:
     class keyboard:
         def Listener(self):
@@ -7,7 +8,6 @@ else:
     from pynput import keyboard
 
 # from pynput.keyboard import Key
-import gymnasium as gym
 import numpy as np
 # from time import time
 

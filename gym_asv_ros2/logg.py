@@ -1,5 +1,6 @@
 from stable_baselines3.common.callbacks import BaseCallback
 import numpy as np
+import re
 
 import stable_baselines3.common.logger as sb3_logger
 from pathlib import Path
@@ -39,7 +40,9 @@ class FileStorage:
 
         option = input(f"{self.work_dir} Does allready exists, are you sure you want to use this logdir? [y/N]")
         if option.lower() == "y":
+            self.info = self.info
             return True
+
         
         return False
 
@@ -53,6 +56,16 @@ class FileStorage:
 
         if name in agents:
             return str( self.agents / name )
+
+        test = agents[0]
+        reg = re.match(r"(\d+)__", test).group(1)
+        print(f"expression: {test} gives {reg}")
+
+        def sort_func(x):
+            m = re.match(r"(\d+)__", x)
+            return int(m.group(1)) if m else -1
+
+        agents.sort(key=sort_func)
 
         # Prompt for agent to use
         for i in range(len(agents)):
@@ -75,7 +88,7 @@ class TrainingCallback(BaseCallback):
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
     """
 
-    def __init__(self, episode_log_dir: str, agents_dir: str, verbose: int = 0):
+    def __init__(self, episode_log_dir: str, agents_dir: str, verbose: int = 0, save_frequency: int = 10000):
         super().__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -98,21 +111,21 @@ class TrainingCallback(BaseCallback):
 
         self.episodes = 0
         self.log_frequency = 100
-        self.save_frequency = None
+        self.save_frequency = save_frequency
 
         # history variables
         self.info_history = {"total_episodes": 0, "successful_episodes": 0}
 
         # Configure episode logger used to log the summary of each episode
         self.agents_dir = agents_dir
-        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv", "stdout", "tensorboard"])
+        self.episode_logger = sb3_logger.configure(episode_log_dir, ["csv", "tensorboard"]) # NOTE: Will write over if log file allready exists
 
     def _on_training_start(self) -> None:
         """
         This method is called before the first rollout starts.
         """
-        self.save_frequency = int(self.model._total_timesteps / 10)
-        pass
+        # self.save_frequency = int(self.model._total_timesteps / 10) # FIXME: Is wrong when loading existing model
+        print(f"[TrainingCallback]: self.num_timesteps: {self.num_timesteps}, model.num_timesteps: {self.model.num_timesteps}")
 
     def _on_rollout_start(self) -> None:
         """
@@ -218,9 +231,14 @@ def test_record_nested_dict():
 
 if __name__ == "__main__":
     # test_record_nested_dict()
-    test = FileStorage("training", "closure_reward_1M")
-    f = test.agent_picker(name="200000__133.zip")
-    print(f)
+    test = FileStorage("training", "lidar_with_dock_obst_5KK")
+    test.agent_picker()
+    # print(f"Storage was: {test.work_dir}")
+    # test = test.new_sub_storage_if_exists()
+    # print(f"Storage is: {test.work_dir}")
+    
+    # f = test.agent_picker(name="200000__133.zip")
+    # print(f)
 
     
     # print(test.work_dir)

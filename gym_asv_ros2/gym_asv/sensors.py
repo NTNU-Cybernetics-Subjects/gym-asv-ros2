@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from sys import intern
+from typing import Sequence
 import numpy as np
 import pyglet
 import shapely
@@ -51,7 +52,7 @@ class LidarSimulator:
 
 
     # FIXME: consider write with numpy logic to optimize running time.
-    def sense(self, position: np.ndarray, heading: float, obstacles: list[BaseEntity]):
+    def sense(self, position: np.ndarray, heading: float, obstacles: Sequence[BaseEntity]):
         """TODO"""
 
         lidar_readings = np.full(self.num_rays, float(self.max_range))
@@ -103,7 +104,7 @@ if __name__ == "__main__":
     obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(20, 90)
+    lidar = LidarSimulator(20, 20)
     game_test = TestCase([obst1, obst2])
 
 
