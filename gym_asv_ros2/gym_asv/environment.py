@@ -47,7 +47,7 @@ class Environment(gym.Env):
         self.collision = False
 
         self.n_navigation_features = 6
-        self.n_perception_features = 40
+        self.n_perception_features = 20
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(20, self.n_perception_features)
@@ -90,7 +90,8 @@ class Environment(gym.Env):
                 3.0, 0.3, np.pi, 100, 100, np.pi,
                 *[self.lidar_sensor.max_range for _ in range(self.n_perception_features)]
 
-            ])
+            ]),
+            dtype=np.float64
         )
 
         self._info = {}
@@ -158,10 +159,10 @@ class Environment(gym.Env):
             ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
             # Only draw the rays that are hitting something
-            visible = False
-            if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
-                visible = True
-            ray_line.pyglet_shape.visible = visible
+            # visible = False
+            # if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+            #     visible = True
+            # ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
         # if mode == "human":
@@ -232,8 +233,8 @@ class Environment(gym.Env):
 
         min_heading_error = np.deg2rad(15)
 
-        # if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
-        if abs_dist_to_goal < min_goal_dist: # NOTE: Only position
+        if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
+        # if abs_dist_to_goal < min_goal_dist: # NOTE: Only position
             self.reached_goal = True
 
         nav = np.array(
@@ -465,7 +466,7 @@ class RandomDockEnvObstacles(Environment):
             self.dock_obst.angle = self.dock.angle
             self.dock_obst.init_boundary()
 
-        print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
+        print(f"Episode was {reached_goal}, dock configuration, p {self.dock.position} angle: {self.dock.angle}")
 
 
 ### -- debugging ---
