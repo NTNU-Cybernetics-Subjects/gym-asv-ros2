@@ -64,17 +64,23 @@ class Environment(gym.Env):
 
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float64)
 
-        obs_low = np.array([
-            -2.0, -0.3, -np.pi, -100, -100, -np.pi, # Navigation
-            *[0.0 for _ in range(self.n_perception_features)] # Perceptioin
-        ])
-        obs_high = np.array([
-            3.0, 0.3, np.pi, 100, 100, np.pi,
-            *[self.lidar_sensor.max_range for _ in range(self.n_perception_features)]
-        ])
+        self._navigation_space = gym.spaces.Box(
+            low=np.array([ [-2.0, -0.3, -np.pi, -100, -100, -np.pi] ]),
+            high=np.array([ [3.0, 0.3, np.pi, 100, 100, np.pi] ]),
+            dtype=np.float64
+        )
 
-        self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, dtype=np.float64)
-        # self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32)
+        self._perception_space = gym.spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(1, self.n_perception_features),
+            dtype=np.float64
+        )
+
+        self.observation_space = gym.spaces.Dict({
+            "perception": self._perception_space,
+            "navigation": self._navigation_space
+        })
 
         self._info = {}
         self.episode_summary = {}
@@ -156,7 +162,7 @@ class Environment(gym.Env):
         
         return None
 
-    def reset(self, seed=None, options=None) -> tuple[np.ndarray, dict]:
+    def reset(self, seed=None, options=None) -> tuple[dict, dict]:
         """Resets the environment and returns an inital observation."""
         # Seed if it is not allready done
         if self.rng is None:
@@ -189,7 +195,7 @@ class Environment(gym.Env):
         for obst in self.obstacles:
             obst.update()
 
-    def observe(self) -> np.ndarray:
+    def observe(self) -> dict:
         """Make the observation vector and check if we reached the goal."""
         vessel_position = self.vessel.position
         vessel_velocity = self.vessel.velocity
@@ -207,10 +213,6 @@ class Environment(gym.Env):
         # Check collision
         collision = np.any(lidar_readings < self.vessel.width)
         self.collision = collision
-        
-        # for obst in self.obstacles:
-        #     collision = self.vessel.boundary.overlaps(obst.boundary)
-            
 
         # Reached goal?
         # min_goal_dist = self.dock.radius # We need to be inside the raidus of the dock circle
@@ -233,7 +235,15 @@ class Environment(gym.Env):
                 dock_heading_error
             ]
         )
-        obs = np.concatenate((nav, lidar_readings))
+        per = lidar_readings/self.lidar_sensor.max_range # Normalize between 0 and 1
+
+        obs = {
+            "perception": per[np.newaxis, :],
+            "navigation": nav[np.newaxis, :]
+        }
+
+        # obs = np.concatenate((nav, lidar_readings))
+        # return obs
         return obs
         # return obs[np.newaxis, :]  # FIXME: should find a better way to do this
 
