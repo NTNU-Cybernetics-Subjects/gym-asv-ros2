@@ -172,12 +172,13 @@ class Vessel:
 
         Action should be [-1,1]
         """
-        force = 0
+        # force = 0
         if action > 0:
             force = np.clip(action, -1, 1) * self._thruster_params.max_forward_force
-        if action < 0:
+        elif action < 0:
             force = np.clip(action, -1, 1) * self._thruster_params.max_backward_force
-
+        else:
+            force = 0
         return force
 
     def step(self, action: np.ndarray, h: float) -> None:
@@ -195,9 +196,12 @@ class Vessel:
             [self.action_to_thrust(action[0]), self.action_to_thrust(action[1])]
         )
 
-        solution = solve_ivp(self._state_dot, [0, h], self._state, args=(self._input,), method="BDF") # TODO: check this
-        self._state = solution.y[:,-1]
-        self._state[2] = geom.princip(self._state[2])
+        if np.linalg.norm(self._input) > 0:
+            solution = solve_ivp(self._state_dot, [0, h], self._state, args=(self._input,), method="BDF") # TODO: check this
+            self._state = solution.y[:,-1]
+            self._state[2] = geom.princip(self._state[2])
+        else:
+            self._state[3:5] = np.full_like(self._state[3:5], 0.0)
 
 
         self._step_counter += 1
