@@ -64,23 +64,34 @@ class Environment(gym.Env):
 
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float64)
 
-        self._navigation_space = gym.spaces.Box(
-            low=np.array([ [-2.0, -0.3, -np.pi, -100, -100, -np.pi] ]),
-            high=np.array([ [3.0, 0.3, np.pi, 100, 100, np.pi] ]),
-            dtype=np.float64
-        )
+        # self._navigation_space = gym.spaces.Box(
+        #     low=np.array([ [-2.0, -0.3, -np.pi, -100, -100, -np.pi] ]),
+        #     high=np.array([ [3.0, 0.3, np.pi, 100, 100, np.pi] ]),
+        #     dtype=np.float64
+        # )
+        #
+        # self._perception_space = gym.spaces.Box(
+        #     low=0.0,
+        #     high=1.0,
+        #     shape=(1, self.n_perception_features),
+        #     dtype=np.float64
+        # )
+        #
+        # self.observation_space = gym.spaces.Dict({
+        #     "perception": self._perception_space,
+        #     "navigation": self._navigation_space
+        # })
+        self.observation_space = gym.spaces.Box(
+            low = np.array([
+                -2.0, -0.3, -np.pi, -100, -100, -np.pi,
+                *[0.0 for _ in range(self.n_perception_features)]
+            ]),
+            high = np.array([
+                3.0, 0.3, np.pi, 100, 100, np.pi,
+                *[self.lidar_sensor.max_range for _ in range(self.n_perception_features)]
 
-        self._perception_space = gym.spaces.Box(
-            low=0.0,
-            high=1.0,
-            shape=(1, self.n_perception_features),
-            dtype=np.float64
+            ])
         )
-
-        self.observation_space = gym.spaces.Dict({
-            "perception": self._perception_space,
-            "navigation": self._navigation_space
-        })
 
         self._info = {}
         self.episode_summary = {}
@@ -195,7 +206,7 @@ class Environment(gym.Env):
         for obst in self.obstacles:
             obst.update()
 
-    def observe(self) -> dict:
+    def observe(self) -> np.ndarray:
         """Make the observation vector and check if we reached the goal."""
         vessel_position = self.vessel.position
         vessel_velocity = self.vessel.velocity
@@ -221,8 +232,8 @@ class Environment(gym.Env):
 
         min_heading_error = np.deg2rad(15)
 
-        if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
-            # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
+        # if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
+        if abs_dist_to_goal < min_goal_dist: # NOTE: Only position
             self.reached_goal = True
 
         nav = np.array(
@@ -236,11 +247,12 @@ class Environment(gym.Env):
             ]
         )
         per = lidar_readings/self.lidar_sensor.max_range # Normalize between 0 and 1
+        obs = np.concatenate([nav, per])
 
-        obs = {
-            "perception": per[np.newaxis, :],
-            "navigation": nav[np.newaxis, :]
-        }
+        # obs = {
+        #     "perception": per[np.newaxis, :],
+        #     "navigation": nav[np.newaxis, :]
+        # }
 
         # obs = np.concatenate((nav, lidar_readings))
         # return obs
