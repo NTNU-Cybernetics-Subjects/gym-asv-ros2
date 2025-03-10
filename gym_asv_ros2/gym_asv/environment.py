@@ -185,7 +185,7 @@ class Environment(gym.Env):
 
         self._setup()
 
-        # Add intial info (Do not update info before )
+        # Add intial info
         self.update_info()
         initial_info = self._info
 
@@ -219,7 +219,7 @@ class Environment(gym.Env):
         min_goal_dist = self.vessel.width/2
         abs_dist_to_goal = np.linalg.norm(relative_dock_position)
 
-        min_heading_error = np.deg2rad(10)
+        min_heading_error = np.deg2rad(15)
 
         if abs_dist_to_goal < min_goal_dist and abs(dock_heading_error) < min_heading_error:
             # print(f"distance to goal: {abs_dist_to_goal} < min_goal_dist: {min_goal_dist}")
@@ -254,7 +254,7 @@ class Environment(gym.Env):
         and increasing heading error"""
         reward = 0
         if self.collision:
-            reward = -1000
+            reward = -500
             return reward
 
         if self.reached_goal:
@@ -348,6 +348,7 @@ class Environment(gym.Env):
         self._update()
 
         self.vessel.step(action, self.step_size)
+        # states = self.vessel.step(action, 1)
 
         # Observe (and check if we reached goal)
         observation = self.observe()
@@ -417,11 +418,11 @@ class RandomDockEnvObstacles(Environment):
     def __init__(self, render_mode=None, *args, **kwargs) -> None:
 
         # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
-        # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0) 
+        # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, obstacles=None, *args, **kwargs)
 
         self.dock_obst = RectangularEntity(
-            self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length +2),
+            self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2),
             width=1,
             height=4,
             angle=self.dock.angle
@@ -430,7 +431,7 @@ class RandomDockEnvObstacles(Environment):
             self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
 
         self.obstacles.append(self.dock_obst)
-        
+
     
     def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
         x = position[0] + lenght * np.cos(angle)
@@ -466,6 +467,8 @@ def play():
     listner.start_listner()
 
     t = 0
+    start_time = time.time()
+    done = False
     while True:
         start_time = time.time()
         if listner.quit:
@@ -474,9 +477,12 @@ def play():
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
 
-        # if t % 10 == 0:
-        #     print("\033c")
-        #     record_nested_dict(print, info)
+
+                # log_statistics.update({k: infos[i][k] for k in desired_from_info if k in infos[i]}) # Copy the desired metrics from infos
+        print_info = {k: info[k] for k in info if k != "observation"}
+        if t % 10 == 0:
+            print("\033c")
+            record_nested_dict(print, print_info)
         # print(info)
         # print(reward)
 
@@ -492,6 +498,7 @@ def play():
         # time.sleep(0.2 - run_time)
         # print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
         t += 1
+        # time.sleep(env.t_step)
 
     env.close()
 
