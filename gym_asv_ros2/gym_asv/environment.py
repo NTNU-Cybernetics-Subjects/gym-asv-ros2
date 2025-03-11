@@ -47,7 +47,7 @@ class Environment(gym.Env):
         self.collision = False
 
         self.n_navigation_features = 6
-        self.n_perception_features = 20
+        self.n_perception_features = 41
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(20, self.n_perception_features)
@@ -88,7 +88,8 @@ class Environment(gym.Env):
             ]),
             high = np.array([
                 3.0, 0.3, np.pi, 100, 100, np.pi,
-                *[self.lidar_sensor.max_range for _ in range(self.n_perception_features)]
+                *[1.0 for _ in range(self.n_perception_features)]
+                # *[self.lidar_sensor.max_range for _ in range(self.n_perception_features)]
 
             ]),
             dtype=np.float64

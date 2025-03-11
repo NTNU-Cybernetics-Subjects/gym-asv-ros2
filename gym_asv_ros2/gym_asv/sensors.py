@@ -28,7 +28,7 @@ class LidarSimulator:
         self.max_range = max_range # [m]
 
         self.num_rays = num_rays
-        self.angle_range = np.array([-np.pi/2, np.pi/2]) # Start angle, and end angle 
+        # self.angle_range = np.array([-np.pi/2, np.pi/2]) # Start angle, and end angle 
         self.angle_range = np.array([0, 2*np.pi], ) # Start angle, and end angle 
 
         self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
