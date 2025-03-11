@@ -56,7 +56,7 @@ def train(file_storage: FileStorage, agent: str = ""):
     # }
 
     env_count = 4
-    total_timesteps = 1_000_000
+    total_timesteps = 500_000
     save_agent_frequency = 10000
 
     env = SubprocVecEnv([make_env_subproc(render_mode=None) for _ in range(env_count)])
@@ -68,7 +68,7 @@ def train(file_storage: FileStorage, agent: str = ""):
         #     features_dim=12, sensor_dim=40
         # ),  # FIXME: hardcoded should be same as in env
         # net_arch=dict(pi=[128, 64, 32], vf=[128, 64, 32]),
-        net_arch=dict(pi=[128, 128], vf=[128, 128]),
+        net_arch=dict(pi=[128, 64], vf=[128, 64]),
     )
 
     # Create a new agent
