@@ -12,11 +12,7 @@ import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
 
-from gym_asv_ros2.gym_asv.environment import (
-    Environment,
-    RandomDockEnv,
-    RandomDockEnvObstacles,
-)
+from gym_asv_ros2.gym_asv.environment import RandomGoalRandomObstEnv
 
 # from stable_baselines3.common.callbacks import BaseCallback
 from gym_asv_ros2.logg import FileStorage, TrainingCallback, record_nested_dict
@@ -32,8 +28,7 @@ install_rich_traceback()
 
 def make_env_subproc(render_mode=None):
     def _init():
-        # env = Environment(render_mode)
-        env = RandomDockEnvObstacles(render_mode)
+        env = RandomGoalRandomObstEnv(render_mode)
         return env
 
     return _init
