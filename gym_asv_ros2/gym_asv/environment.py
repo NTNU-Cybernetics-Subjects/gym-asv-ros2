@@ -48,7 +48,7 @@ class BaseEnvironment(gym.Env):
         self.collision = False
 
         # self.n_navigation_features = 6
-        self.n_perception_features = n_perception_features
+        self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(20, self.n_perception_features)
@@ -237,7 +237,6 @@ class BaseEnvironment(gym.Env):
         obs = np.concatenate([nav, per])
         return obs
 
-
     def closure_reward(self) -> float:
         """The closure reward. Positive reward for moving towards goal and
         lowering heading error, Negative reward for increasing goal distance
@@ -384,120 +383,80 @@ class BaseEnvironment(gym.Env):
         self._info["episode_nr"] = self.episode
 
 
+class RandomGoalEnv(BaseEnvironment):
 
-# class TestEnv(BaseEnvironment):
-#
-#     def __init__(self, render_mode=None, obstacles: Sequence[BaseEntity] | None = None, *args, **kwargs) -> None:
-#         super().__init__(render_mode, obstacles, *args, **kwargs)
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+        super().__init__(render_mode, n_perception_features=0, *args, **kwargs)
 
-# class RandomDockEnv(Environment):
-#
-#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-#         super().__init__(render_mode, *args, **kwargs)
-#         # self.init_visualization()
-#
-#         # self.level = 0
-#
-#
-#     def _setup(self):
-#         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
-#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-#
-#         if reached_goal:
-#             self.dock.position[0] = np.random.randint(-20,20)
-#             self.dock.position[1] = np.random.randint(5,20)
-#             self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
-#
-#         print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
-#
-# class RandomDockFullEnv(Environment):
-#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-#         super().__init__(render_mode, *args, **kwargs)
-#         # self.init_visualization()
-#
-#         # self.level = 0
-#
-#
-#     def _setup(self):
-#         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
-#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-#         angle_offset = np.pi/2
-#
-#         if reached_goal:
-#             x_dir = np.random.choice([-1, 1])
-#             self.dock.position[0] = np.random.randint(-20,20)
-#             self.dock.position[1] = np.random.randint(10,20) * x_dir
-#             random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-#             self.dock.angle = angle_offset + (np.sign(self.dock.position[0]) * random_angle)
-#             if x_dir < 0:
-#                 self.dock.angle += np.pi
-#
-#
-#         print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
-#
-#
-# class RandomDockEnvObstacles(Environment):
-#
-#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-#
-#         # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
-#         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
-#         # obst = [
-#         #     CircularEntity(np.array([2, 10]), 1),
-#         #     CircularEntity(np.array([-4, 10]), 1)
-#         # ]
-#         obst = None
-#         super().__init__(render_mode, obstacles=obst, *args, **kwargs)
-#
-#         self.dock_obst = RectangularEntity(
-#             self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2),
-#             width=1,
-#             height=4,
-#             angle=self.dock.angle
-#         )
-#         if render_mode: # Init the shape since it is added after calling super().__init__
-#             self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-#
-#         self.obstacles.append(self.dock_obst)
-#
-#
-#     def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
-#         x = position[0] + lenght * np.cos(angle)
-#         y = position[1] + lenght * np.sin(angle)
-#         return np.array([x,y])
-#
-#     def _setup(self):
-#         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
-#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-#         angle_offset = np.pi/2
-#
-#         if reached_goal:
-#             x_dir = np.random.choice([-1, 1])
-#             self.dock.position[0] = np.random.randint(-20,20)
-#             self.dock.position[1] = np.random.randint(10,20) * x_dir
-#             # self.dock.position[1] = np.random.randint(10,20)
-#             random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-#             self.dock.angle = angle_offset + (np.sign(self.dock.position[0]) * random_angle)
-#             if x_dir < 0:
-#                 self.dock.angle += np.pi
-#
-#             self.dock_obst.position = self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2)
-#             self.dock_obst.angle = self.dock.angle
-#             self.dock_obst.init_boundary()
-#             # print(self.obstacles)
-#
-#             # self.obstacles[0].position = self.dock.position + np.array([4, 0])
-#             # self.obstacles[1].position = self.dock.position + np.array([-4, 0])
-#             # for obst in self.obstacles:
-#             #     obst.init_boundary()
-#
-#
-#         print(f"Episode was {reached_goal}, dock configuration, p {self.dock.position} angle: {self.dock.angle}")
-#
+    def _setup(self):
+        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+
+        if reached_goal:
+            random_distance = np.random.uniform(7,20)
+            random_angle = np.random.uniform(-np.pi, np.pi)
+
+            self.goal.position[0] = random_distance * np.cos(random_angle)
+            self.goal.position[1] = random_distance * np.sin(random_angle)
+            self.goal.angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
+
+
+class RandomGoalRandomObstEnv(BaseEnvironment):
+
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+        super().__init__(render_mode,n_perception_features=41, *args, **kwargs)
+        self.add_obstacle(CircularEntity(np.array([10, 10]), 2))
+        self.add_obstacle(CircularEntity(np.array([-10, 10]), 2))
+        
+
+    def _setup(self):
+        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+
+        if reached_goal:
+            x, y, angle = self._calculate_random_circular_position(7,25)
+            self.goal.position[0] = x
+            self.goal.position[1] = y
+            self.goal.angle = angle
+
+            n_obst = 3
+            obstacles = []
+            for i in range(n_obst):
+                x,y, _ = self._calculate_random_circular_position(5,40, angle, np.linalg.norm(self.goal.position))
+                obst = CircularEntity(np.array([x,y]), 2)
+                if self.render_mode:
+                    obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+                obstacles.append(obst)
+
+            self.obstacles = obstacles
+
+        print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
+
+    def _calculate_random_circular_position(self, min_dist, max_dist, excluded_angle=0.0, excluded_center_radius=0.0):
+
+        random_distance = np.random.uniform(min_dist,max_dist)
+        random_angle = np.random.uniform(-np.pi, np.pi)
+
+        dist_error = abs( random_distance - excluded_center_radius )
+        angle_error = abs(random_angle - excluded_angle)
+
+        # Make sure the point is outside
+        if excluded_angle and excluded_center_radius:
+            while dist_error < 4 and angle_error < np.deg2rad(30):
+                random_distance = np.random.uniform(min_dist,max_dist)
+                random_angle = np.random.uniform(-np.pi, np.pi)
+
+                dist_error = abs( random_distance - excluded_center_radius )
+                angle_error = abs(random_angle - excluded_angle)
+
+
+        x = random_distance * np.cos(random_angle)
+        y = random_distance * np.sin(random_angle)
+        angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
+
+        return x, y, angle
 
 ### -- debugging ---
 def play():
-    env = BaseEnvironment(render_mode="human")
+    env = RandomGoalRandomObstEnv(render_mode="human")
     # env = RandomDockEnvObstacles(render_mode="human")
     # env = RandomDockFullEnv(render_mode="human")
     env.reset()
@@ -518,11 +477,10 @@ def play():
         observation, reward, done, truncated, info = env.step(action)
 
 
-                # log_statistics.update({k: infos[i][k] for k in desired_from_info if k in infos[i]}) # Copy the desired metrics from infos
-        # print_info = {k: info[k] for k in info if k != "observation"}
-        # if t % 10 == 0:
-        #     print("\033c")
-        #     record_nested_dict(print, print_info)
+        print_info = {k: info[k] for k in info if k != "observation"}
+        if t % 10 == 0:
+            print("\033c")
+            record_nested_dict(print, info)
         # print(info)
         # print(reward)
 
