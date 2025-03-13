@@ -23,14 +23,19 @@ class BaseSensor:
 
 
 class LidarSimulator:
-    
+
     def __init__(self, max_range: float, num_rays: float):
         self.max_range = max_range # [m]
 
         self.num_rays = num_rays
-        # self.angle_range = np.array([-np.pi/2, np.pi/2]) # Start angle, and end angle 
-        self.angle_range = np.array([0, 2*np.pi], ) # Start angle, and end angle 
+        # self.angle_range = np.array([-np.pi/2, np.pi/2]) # Start angle, and end angle
+        self.angle_range = np.array([0, 2*np.pi], ) # Start angle, and end angle
+        # self.angle_range = np.array([-np.pi/2, np.pi/2]) # Start angle, and end angle
+        # self.angle_range = np.array([0, 2*np.pi])
+        # delta_angle = 2*np.pi/num_rays
+        # self.angle_range = np.array([-np.pi + delta_angle/2, np.pi - delta_angle/2])
 
+        # self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays)
         self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
         self._ray_lines = [ LineEntity(np.array([0.0,0.0]), np.array([0.0, 0.0]), color=(127,0,0)) for _ in range(self.num_rays)]
 
@@ -105,29 +110,55 @@ if __name__ == "__main__":
     obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(20, 20)
+    lidar = LidarSimulator(20, 40)
     game_test = TestCase([obst1, obst2])
 
 
     pyglet_lines = []
     def setup():
-        pass
-        # for ray_line in lidar._ray_lines:
+        # pass
+        for ray_line in lidar._ray_lines:
             # print(f"initializing ray_lines {ray_line}")
-            # ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+            ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+            ray_line.pyglet_shape.visible = False
 
+
+    class Global:
+        i = 0
+        start_time = time.time()
 
     def update():
         lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
         # Update ray_lines
+        
+        # n_lidar = len(lidar_readings)
+        # if time.time() > Global.start_time + 0.5:
+        #     if Global.i >= n_lidar:
+        #         return
+        #     Global.start_time = time.time()
+        #     lidar._ray_lines[Global.i].update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        #     lidar._ray_lines[Global.i].pyglet_shape.visible = True
+        #     lidar._ray_lines[Global.i -1].pyglet_shape.visible = False if Global.i > 0 else None
+        #     Global.i += 1
+        
+
+        rays = lidar.num_rays
+        line_index = [0, ( rays-1 )//2, rays//2, rays-1]
+        # print(line_index)
+
+        for i in line_index:
+            print(f"setting ray index: {i} with angle: {np.rad2deg(lidar.angles[i])}")
+            lidar._ray_lines[i].update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+            lidar._ray_lines[i].pyglet_shape.visible = True
         # for line in lidar._ray_lines:
-            # line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        #     line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        #     line.pyglet_shape.visible = True
         
         # print(lidar_readings)
         # print(f"points: {[ray_line.end_position for ray_line in lidar._ray_lines]}, readings: {lidar_readings}")
         # for i, ray_line in enumerate(lidar._ray_lines):
         #     print(f"at {ray_line.end_position} distance is {lidar_readings[i]}")
-        print(lidar_readings)
+        # print(lidar_readings)
 
     game_test.game_loop(setup=setup,update=update)
 
