@@ -269,26 +269,49 @@ class BaseEnvironment(gym.Env):
         heading_term = last_vessel_heading_error - current_vessel_heading_error
 
         reward = closure_term + heading_term
+        print(f"[env.reward] closure_reward {closure_term}, heading_term: {heading_term}")
 
         return float(reward)
 
 
     def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
 
+        if self.collision:
+            reward = -500.0
+            return reward
+
+        if self.reached_goal:
+            reward = 1000.0
+            return reward
+
         current_obs = current_observation.flatten()
         last_obs = last_observation.flatten()
 
         # distance term
-        current_distance_error = np.linalg.norm(current_obs[3:5])
-        last_distance_error = np.linalg.norm(last_obs[3:5])
+        current_distance_error = current_obs[3]
+        last_distance_error = last_obs[3]
         distance_reward = ( last_distance_error - current_distance_error ) * alpha
 
-        # heading term
-        current_heading_error = abs(current_obs[5])
-        last_heading_error = abs(last_obs[5])
-        heading_reward = ( last_heading_error - current_heading_error ) * beta
+        # alginment term
+        current_goal_alignment_error = abs(current_obs[4])
+        last_goal_alignment_error = abs(last_obs[4])
+        #
+        decay_factor = 0.7
+        closure_exponential_factor = np.exp(-current_distance_error * decay_factor)
+        alignment_weight = closure_exponential_factor * beta
+        
+        alignment_reward = ( last_goal_alignment_error - current_goal_alignment_error) * alignment_weight
+        if np.abs(alignment_reward) > 0:
+            print(f"[reward] distance_reward: {distance_reward}, align_weight: {alignment_weight}, align_reward: {alignment_reward}")
 
-        reward = distance_reward + heading_reward
+
+        # align_reward = 0
+        # if current_distance_error < 2:
+        #     goal_alignment = current_obs[4]
+        #     align_reward = np.exp(-abs( goal_alignment ))
+
+        reward = distance_reward + alignment_reward
+        # print(f"[env.reward] distance_reward = {distance_reward}, align_reward {align_reward}")
 
         return float(reward)
 
@@ -343,13 +366,15 @@ class BaseEnvironment(gym.Env):
 
         # Observe (and check if we reached goal)
         observation = self.observe()
-        
-        self.last_observation = observation
 
         # Reward function
-        reward = self.closure_reward()
+        # reward = self.closure_reward()
+        reward = self.new_closure_reward(observation, self.last_observation, beta=2.0)
         self.last_reward = reward
         self.cumulative_reward += reward
+
+        self.last_observation = observation
+
 
         self.update_info()
         info = self._info
@@ -384,6 +409,7 @@ class BaseEnvironment(gym.Env):
 
 
 class RandomGoalEnv(BaseEnvironment):
+    """Environment with random position."""
 
     def __init__(self, render_mode=None, *args, **kwargs) -> None:
         super().__init__(render_mode, n_perception_features=0, *args, **kwargs)
@@ -399,16 +425,61 @@ class RandomGoalEnv(BaseEnvironment):
             self.goal.position[1] = random_distance * np.sin(random_angle)
             self.goal.angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
 
-
-class RandomGoalRandomObstEnv(BaseEnvironment):
+class RandomGoalWithDockObstacle(BaseEnvironment):
+    """This environment have a random goal position and heading, aswell as a
+    obstacle behind the goal position making it a dock. The dock will always spawn in front of the vessel."""
 
     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-        super().__init__(render_mode,n_perception_features=41, *args, **kwargs)
+
+        # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
+        # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
+        super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
+
+        self.dock_obst = RectangularEntity(
+            self._calculate_dock_obst_position(self.goal.position, self.goal.angle, self.vessel.length + 2),
+            width=1,
+            height=4,
+            angle=self.goal.angle
+        )
+        if render_mode: # Init the shape since it is added after calling super().__init__
+            self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+        self.obstacles.append(self.dock_obst)
+
+    
+    def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
+        x = position[0] + lenght * np.cos(angle)
+        y = position[1] + lenght * np.sin(angle)
+        return np.array([x,y])
+
+    def _setup(self):
+        # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
+        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+        angle_offset = np.pi/2
+
+        if reached_goal:
+            self.goal.position[0] = np.random.randint(-20,20)
+            self.goal.position[1] = np.random.randint(5,20)
+            random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
+            self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
+
+            self.dock_obst.position = self._calculate_dock_obst_position(self.goal.position, self.goal.angle, self.vessel.length + 2)
+            self.dock_obst.angle = self.goal.angle
+            self.dock_obst.init_boundary()
+
+        print(f"Episode was {reached_goal}, dock configuration, p {self.goal.position} angle: {self.goal.angle}")
+
+
+class RandomGoalRandomObstEnv(BaseEnvironment):
+    """This Environment have random generated goal position and heading and random generated obstacles."""
+
+    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+        super().__init__(render_mode, n_perception_features=41, *args, **kwargs)
         self.add_obstacle(CircularEntity(np.array([10, 10]), 2))
         self.add_obstacle(CircularEntity(np.array([-10, 10]), 2))
         
-
     def _setup(self):
+
         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
 
         if reached_goal:
@@ -428,7 +499,11 @@ class RandomGoalRandomObstEnv(BaseEnvironment):
 
             self.obstacles = obstacles
 
-        print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
+        msg = f"""Episode was {reached_goal}, new dock configuration: p {self.goal.position}, angle {self.goal.angle}
+        obs: p {[obs.position for obs in self.obstacles]}
+        """
+        print(msg)
+        # print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
 
     def _calculate_random_circular_position(self, min_dist, max_dist, excluded_angle=0.0, excluded_center_radius=0.0):
 
@@ -455,10 +530,7 @@ class RandomGoalRandomObstEnv(BaseEnvironment):
         return x, y, angle
 
 ### -- debugging ---
-def play():
-    env = RandomGoalRandomObstEnv(render_mode="human")
-    # env = RandomDockEnvObstacles(render_mode="human")
-    # env = RandomDockFullEnv(render_mode="human")
+def play(env):
     env.reset()
     env.render()
 
@@ -502,5 +574,6 @@ def play():
 
 
 if __name__ == "__main__":
-    # pass
-    play()
+    # env = RandomGoalEnv(render_mode="human")
+    env = RandomGoalRandomObstEnv(render_mode="human")
+    play(env)
