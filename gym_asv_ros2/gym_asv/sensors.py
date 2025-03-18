@@ -4,9 +4,11 @@ from typing import Sequence
 import numpy as np
 import pyglet
 import shapely
+from torch import polar
 import gym_asv_ros2.gym_asv.utils.geom_utils as geom
-from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, RectangularEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, PolygonEntity, RectangularEntity
 import time
+from shapely.ops import nearest_points
 
 # testing
 from gym_asv_ros2.gym_asv.visualization import TestCase
@@ -81,7 +83,7 @@ class LidarSimulator:
                     continue
 
 
-                if isinstance(intersection, shapely.Point):
+                elif isinstance(intersection, shapely.Point):
                     if start_point.distance(intersection) < start_point.distance(current_closet_point):
                         current_closet_point = intersection
 
@@ -105,30 +107,152 @@ class LidarSimulator:
         return lidar_readings
 
 
+class SectorLidar:
+
+    def __init__(self, max_range: float, num_rays: int) -> None:
+
+        self.max_range = float( max_range ) # [m]
+        self.num_rays = num_rays
+
+
+        # number of sectors in [front, left, back, right]
+        self.sector_config = [5, 1, 3, 1]
+        self.n_sectors = sum(self.sector_config)
+
+        self.scan_points = []
+
+        self.sector_objects = []
+
+    def sense(self, position: np.ndarray, heading: float, obstacles: Sequence[BaseEntity]):
+
+        self.scan_points.clear()
+        # Update sector objects before sensing
+        self.update_sectors(position, heading)
+
+        lidar_pos = shapely.Point(position)
+        sector_readings = np.full_like(self.sector_objects, self.max_range, dtype=np.float32)
+
+        for i, sector in enumerate( self.sector_objects ):
+
+            current_sector_distance = self.max_range
+
+            for obs in obstacles:
+                intersection = sector.boundary.intersection(obs.boundary)
+
+                if intersection.is_empty:
+                    continue
+                
+                p_intersect, _ = nearest_points(intersection, lidar_pos)
+                distance = lidar_pos.distance(p_intersect)
+                # current_sector_distance = min(current_sector_distance, distance)
+                if distance < current_sector_distance:
+                    current_sector_distance = distance
+                    self.scan_points.append(p_intersect)
+            
+            sector_readings[i] = current_sector_distance
+
+        return sector_readings
+
+
+    def update_sectors(self, position: np.ndarray, heading: float):
+        for s in self.sector_objects:
+            s.position = position
+            s.angle = heading
+            s.init_boundary()
+
+    def configure_sectors(self):
+
+        sector_ranges = np.array([
+            [ 3*np.pi/2, 2*np.pi ], # front
+            [0, np.pi/2], # left
+            [np.pi/2, np.pi], # back
+            [np.pi, 3*np.pi/2], # right
+        ])
+        sector_ranges += np.pi/4
+
+        n_sector_config = self.sector_config
+
+        splitted_sector_ranges = []
+        for i, r in enumerate(sector_ranges):
+            new_edges = np.linspace(r[0], r[1], n_sector_config[i] +1)
+
+            for i in range(n_sector_config[i]):
+                splitted_sector_ranges.append([ new_edges[i], new_edges[i+1] ])
+ 
+        for r in splitted_sector_ranges:
+            print(f"making sector: {[np.rad2deg(a) for a in r]}")
+            self.sector_objects.append(self.make_sector_object(r[0], r[1]))
+
+    def make_sector_object(self, start_angle: float, end_angle: float) -> BaseEntity:
+
+        resolution = 20
+        angles = np.linspace(start_angle, end_angle, resolution)
+        center = np.array([0.0, 0.0])
+
+        # Defined in origo
+        arc_points = [
+            (self.max_range * np.cos(a), self.max_range * np.sin(a))
+            for a in angles
+        ]
+        vertecies = [tuple( center ), *arc_points, tuple( center )]
+        random_color = np.random.randint(0, 255, (3,))
+
+        return PolygonEntity(vertecies, center, 0, tuple( random_color ))
+
+
 if __name__ == "__main__":
     obst1 = CircularEntity(np.array([10,10]), 1)
     obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(20, 40)
+    old_lidar = LidarSimulator(20, 40)
+    # lidar = NewLidarSimulator(20, 40, [0, 2*np.pi])
+    lidar = SectorLidar(20, 180)
     game_test = TestCase([obst1, obst2])
-
 
     pyglet_lines = []
     def setup():
-        # pass
-        for ray_line in lidar._ray_lines:
-            # print(f"initializing ray_lines {ray_line}")
-            ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
-            ray_line.pyglet_shape.visible = False
+        lidar.configure_sectors()
+        # for s in lidar.sector_objects:
+        #     s.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+        #     s.pyglet_shape.visible = False
+        #
+        # lidar.sector_objects[2].pyglet_shape.visible = True
+
+        # lidar.make_sector_objects(np.array([0,0]), 0)
+        # for ray_line in lidar._ray_lines:
+        #     # print(f"initializing ray_lines {ray_line}")
+        #     ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+        #     ray_line.pyglet_shape.visible = False
 
 
-    class Global:
-        i = 0
-        start_time = time.time()
+    # class Global:
+        # i = 0
+        # start_time = time.time()
 
     def update():
-        lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
+
+        lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
+        readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
+        print(readings)
+
+        # for s in lidar.sector_objects:
+        #     s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+
+
+
+        # obj = lidar.make_sector_object(game_test.vessel.position, 0, np.pi/4)
+        # obj.init_boundary()
+        # obj.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+        
+
+        # lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
+        # print(lidar_readings)
+        # old_lidar_readings = old_lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
+        # print(abs(lidar_readings - old_lidar_readings))
+        # points = lidar.lidar_dist_to_points(game_test.vessel.position, game_test.vessel.heading, lidar_readings)
+        # print(points)
+        # print(lidar_readings)
         # Update ray_lines
         
         # n_lidar = len(lidar_readings)
@@ -142,14 +266,14 @@ if __name__ == "__main__":
         #     Global.i += 1
         
 
-        rays = lidar.num_rays
-        line_index = [0, ( rays-1 )//2, rays//2, rays-1]
-        # print(line_index)
-
-        for i in line_index:
-            print(f"setting ray index: {i} with angle: {np.rad2deg(lidar.angles[i])}")
-            lidar._ray_lines[i].update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
-            lidar._ray_lines[i].pyglet_shape.visible = True
+        # rays = lidar.num_rays
+        # line_index = [0, ( rays-1 )//2, rays//2, rays-1]
+        # # print(line_index)
+        #
+        # for i in line_index:
+        #     print(f"setting ray index: {i} with angle: {np.rad2deg(lidar.angles[i])}")
+        #     lidar._ray_lines[i].update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        #     lidar._ray_lines[i].pyglet_shape.visible = True
         # for line in lidar._ray_lines:
         #     line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
         #     line.pyglet_shape.visible = True
@@ -161,15 +285,5 @@ if __name__ == "__main__":
         # print(lidar_readings)
 
     game_test.game_loop(setup=setup,update=update)
-
-
-
-
-
-
-
-
-
-
 
 
