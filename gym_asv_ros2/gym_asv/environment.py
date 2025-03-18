@@ -152,10 +152,10 @@ class BaseEnvironment(gym.Env):
             ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
             # Only draw the rays that are hitting something
-            # visible = False
-            # if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
-            #     visible = True
-            # ray_line.pyglet_shape.visible = visible
+            visible = False
+            if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+                visible = True
+            ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
 
