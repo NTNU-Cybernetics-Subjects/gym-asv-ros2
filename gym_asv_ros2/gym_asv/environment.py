@@ -67,11 +67,11 @@ class BaseEnvironment(gym.Env):
 
         self.observation_space = gym.spaces.Box(
             low = np.array([
-                -2.0, -0.3, -np.pi, -100, -np.pi,
+                -2.0, -0.3, -np.pi, -50,-50, -np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             high = np.array([
-                3.0, 0.3, np.pi, 100, np.pi,
+                3.0, 0.3, np.pi, 50, 50, np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             dtype=np.float64
@@ -228,8 +228,10 @@ class BaseEnvironment(gym.Env):
             vessel_velocity[1], # sway
             los_heading_error, # line of sigth error (angle between vessel and dock)
             # Goal
-            goal_dist_error,
-            goal_heading_error
+            goal_position_error[0], # dist to goal x
+            goal_position_error[1], # dist to goal y
+            # goal_dist_error, # abs dist to goal
+            goal_heading_error # error between heading and LOS-goal
         ])
 
         per = lidar_readings/self.lidar_sensor.max_range
