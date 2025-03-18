@@ -12,7 +12,8 @@ import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
 
-from gym_asv_ros2.gym_asv.environment import RandomGoalRandomObstEnv
+from gym_asv_ros2.gym_asv.environment import RandomGoalEnv, RandomGoalRandomObstEnv, RandomGoalWithDockObstacle
+from gym_asv_ros2.gym_asv.environment import play as play_env
 
 # from stable_baselines3.common.callbacks import BaseCallback
 from gym_asv_ros2.logg import FileStorage, TrainingCallback, record_nested_dict
@@ -28,7 +29,8 @@ install_rich_traceback()
 
 def make_env_subproc(render_mode=None):
     def _init():
-        env = RandomGoalRandomObstEnv(render_mode)
+        # env = RandomGoalRandomObstEnv(render_mode)
+        env = RandomGoalWithDockObstacle(render_mode)
         return env
 
     return _init
@@ -40,15 +42,15 @@ def train(file_storage: FileStorage, agent: str = ""):
     if not proceed:
         return
 
-    # hyperparams = {
-    #     "learning_rate": 3e-4,  # Default 2.5e-4
-    #     "n_steps": 256,  # Default 128
-    #     "batch_size": 64,  # Default 4
-    #     "n_epochs": 4,  # Default 4
-    #     "gamma": 0.99,  # Default 0.99
-    #     "gae_lambda": 0.90,  # Default 0.95
-    #     "ent_coef": 0.03,  # Default 0.01
-    # }
+    hyperparams = {
+        "learning_rate": 2.5e-4,  # Default 3e-4
+        "n_steps": 256,  # Default 2048
+        "batch_size": 64,  # Default 64
+        "n_epochs": 4,  # Default 10
+        "gamma": 0.99,  # Default 0.99
+        "gae_lambda": 0.95,  # Default 0.95
+        "ent_coef": 0.01,  # Default 0.0
+    }
 
     env_count = 4
     total_timesteps = 500_000
@@ -63,7 +65,8 @@ def train(file_storage: FileStorage, agent: str = ""):
         #     features_dim=12, sensor_dim=40
         # ),  # FIXME: hardcoded should be same as in env
         # net_arch=dict(pi=[128, 64, 32], vf=[128, 64, 32]),
-        net_arch=dict(pi=[128, 64], vf=[128, 64]),
+        # net_arch=dict(pi=[128, 64], vf=[128, 64]),
+        net_arch=dict(pi=[128, 128], vf=[128, 128]),
     )
 
     # Create a new agent
@@ -191,7 +194,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "mode", help="TODO", choices=["enjoy", "train", "hyperparameter_serach"]
+        "mode", help="TODO", choices=["enjoy", "train", "play", "hyperparameter_serach"]
     )
     parser.add_argument("--logid", help="TOOD", default=time_stamp)
     parser.add_argument("--agent", help="TODO", default="")
@@ -213,6 +216,9 @@ if __name__ == "__main__":
         elapsed_time = time.gmtime(end_time - start_time)
         formatted_time = time.strftime("%H:%M:%S", elapsed_time)
         print(f"elapsed time: {formatted_time}")
+
+    elif args.mode == "play":
+        play_env(make_env_subproc(render_mode="human")())
 
     elif args.mode == "hyperparameter_serach":
         optimize_hyperparams()
