@@ -14,7 +14,7 @@ from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, PolygonEnt
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
-from gym_asv_ros2.gym_asv.sensors import LidarSimulator
+from gym_asv_ros2.gym_asv.sensors import LidarSimulator, SectorLidar
 
 from gym_asv_ros2.logg import record_nested_dict
 
@@ -48,10 +48,12 @@ class BaseEnvironment(gym.Env):
         self.collision = False
 
         # self.n_navigation_features = 6
-        self.n_perception_features = n_perception_features # if 0, only navigation features is used
+        # self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        # self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        self.lidar_sensor = SectorLidar(30)
+        self.n_perception_features = self.lidar_sensor.n_sectors
 
         # Use same shape on goal position as vessel
         self.goal = PolygonEntity(
@@ -123,9 +125,18 @@ class BaseEnvironment(gym.Env):
         # Init the dock
         self.goal.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
         
+
         # Init lidar Visuals
-        for ray_line in self.lidar_sensor._ray_lines:
-            ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+        if isinstance(self.lidar_sensor, SectorLidar):
+            for s in self.lidar_sensor.sector_objects:
+                s.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+                s.pyglet_shape.opacity = 64
+
+        # elif isinstance(self.lidar_sensor, LidarSimulator):
+        #     for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
+        #         ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+
 
         print("[env] Visualizatin intialized.")
 
@@ -147,15 +158,25 @@ class BaseEnvironment(gym.Env):
         for obst in self.obstacles:
             obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
-        # Update lidar visualization
-        for ray_line in self.lidar_sensor._ray_lines:
-            ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        # update lidar visualization
+        if isinstance(self.lidar_sensor, SectorLidar):
+            for s in self.lidar_sensor.sector_objects:
+                s.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
-            # Only draw the rays that are hitting something
-            visible = False
-            if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
-                visible = True
-            ray_line.pyglet_shape.visible = visible
+            # show points
+            for p in self.lidar_sensor.scan_points:
+                p.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch) # Scan points gets recreated each iteration
+                p.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+        # Update lidar visualization
+        # for ray_line in self.lidar_sensor._ray_lines:
+        #     ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        #
+        #     # Only draw the rays that are hitting something
+        #     visible = False
+        #     if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+        #         visible = True
+        #     ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
 
@@ -304,13 +325,13 @@ class BaseEnvironment(gym.Env):
         last_obs = last_observation.flatten()
 
         # distance term
-        current_distance_error = current_obs[3]
-        last_distance_error = last_obs[3]
+        current_distance_error = np.linalg.norm(current_obs[3:5])
+        last_distance_error = np.linalg.norm( last_obs[3:5] )
         distance_reward = ( last_distance_error - current_distance_error ) * alpha
 
         # alginment term
-        current_goal_alignment_error = abs(current_obs[4])
-        last_goal_alignment_error = abs(last_obs[4])
+        current_goal_alignment_error = abs(current_obs[5])
+        last_goal_alignment_error = abs(last_obs[5])
         #
         decay_factor = 0.7
         closure_exponential_factor = np.exp(-current_distance_error * decay_factor)
@@ -451,7 +472,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level3
+        self.init_level = self.level1
         # self.level1(True)
         # self.level2(True)
         self.init_level(False)
@@ -483,7 +504,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         if update_goal:
             angle_offset = np.pi/2
             self.goal.position[0] = np.random.randint(-15,15)
-            self.goal.position[1] = np.random.randint(8,20)
+            self.goal.position[1] = np.random.randint(10,20)
             random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
             self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
 
@@ -531,8 +552,23 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         )
 
     def level3(self, update_goal=True):
+        """Extends level 3 by adding a obstacle we need to go around"""
 
         self.level2(update_goal=update_goal)
+        
+        r = np.random.uniform(1,2)
+        random_distance = np.random.uniform(4.5, 7.5)
+        random_angle_offset = self.goal.angle + ( np.random.uniform(np.pi/8, np.pi/6)  * np.random.choice([-1, 1]))
+        obs_pos = self.translate_coord(self.goal.position, random_angle_offset, -random_distance)
+
+        self.add_obstacle(
+            CircularEntity(obs_pos, r)
+        )
+        
+
+    def add_walls(self):
+
+        # self.level2(update_goal=update_goal)
         left_wall = RectangularEntity(np.array([ -50, 0 ]), 1, 100)
         right_wall = RectangularEntity(np.array([50,0]), 1, 100)
         top_wall = RectangularEntity(np.array([0, 50]), 100, 1)
@@ -630,9 +666,10 @@ def play(env):
 
 
         print_info = {k: info[k] for k in info if k != "observation"}
-        # if t % 10 == 0:
-        #     print("\033c")
-        #     record_nested_dict(print, info)
+        if t % 10 == 0:
+            print("\033c")
+            record_nested_dict(print, info)
+            print(f"reward {reward}")
         # print(info)
         # print(reward)
 
