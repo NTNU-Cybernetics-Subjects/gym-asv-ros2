@@ -109,47 +109,65 @@ class LidarSimulator:
 
 class SectorLidar:
 
-    def __init__(self, max_range: float, num_rays: int) -> None:
+    def __init__(self, max_range: float) -> None:
 
         self.max_range = float( max_range ) # [m]
-        self.num_rays = num_rays
-
+        # self.num_rays = num_rays
 
         # number of sectors in [front, left, back, right]
-        self.sector_config = [5, 1, 3, 1]
+        self.sector_config = [7, 3, 5, 3]
         self.n_sectors = sum(self.sector_config)
 
         self.scan_points = []
 
         self.sector_objects = []
 
+        self.configure_sectors()
+
     def sense(self, position: np.ndarray, heading: float, obstacles: Sequence[BaseEntity]):
 
-        self.scan_points.clear()
+        self.scan_points.clear() # NOTE: For debuging
         # Update sector objects before sensing
         self.update_sectors(position, heading)
 
         lidar_pos = shapely.Point(position)
         sector_readings = np.full_like(self.sector_objects, self.max_range, dtype=np.float32)
 
+        obstacles_union = shapely.unary_union([obs.boundary for obs in obstacles])
+
         for i, sector in enumerate( self.sector_objects ):
 
             current_sector_distance = self.max_range
 
-            for obs in obstacles:
-                intersection = sector.boundary.intersection(obs.boundary)
+            intersection = sector.boundary.intersection(obstacles_union)
 
-                if intersection.is_empty:
-                    continue
-                
-                p_intersect, _ = nearest_points(intersection, lidar_pos)
-                distance = lidar_pos.distance(p_intersect)
-                # current_sector_distance = min(current_sector_distance, distance)
-                if distance < current_sector_distance:
-                    current_sector_distance = distance
-                    self.scan_points.append(p_intersect)
-            
+            if intersection.is_empty:
+                continue
+
+            closest_point, nearest_obstacle = nearest_points(intersection, lidar_pos)
+
+            intersecting_distance = closest_point.distance(nearest_obstacle)
+            if intersecting_distance < current_sector_distance:
+                current_sector_distance = intersecting_distance
+                self.scan_points.append(CircularEntity(np.array([ closest_point.x, closest_point.y]), 0.2, color=(127,0,0))) # NOTE: for debuging
+
             sector_readings[i] = current_sector_distance
+
+
+            # for obs in obstacles:
+            #     intersection = sector.boundary.intersection(obs.boundary)
+            #
+            #     if intersection.is_empty:
+            #         continue
+            #
+            #     p_intersect, _ = nearest_points(intersection, lidar_pos)
+            #     distance = lidar_pos.distance(p_intersect)
+            #     # current_sector_distance = min(current_sector_distance, distance)
+            #     if distance < current_sector_distance:
+            #         current_sector_distance = distance
+            #         self.scan_points.append(CircularEntity(np.array([ p_intersect.x, p_intersect.y]), 0.2, color=(127,0,0))) # NOTE: for debuging
+            #
+            # sector_readings[i] = current_sector_distance
 
         return sector_readings
 
@@ -161,6 +179,7 @@ class SectorLidar:
             s.init_boundary()
 
     def configure_sectors(self):
+        """Make the sectors and add them to sector_object list."""
 
         sector_ranges = np.array([
             [ 3*np.pi/2, 2*np.pi ], # front
@@ -207,14 +226,16 @@ if __name__ == "__main__":
 
     old_lidar = LidarSimulator(20, 40)
     # lidar = NewLidarSimulator(20, 40, [0, 2*np.pi])
-    lidar = SectorLidar(20, 180)
+    lidar = SectorLidar(20)
     game_test = TestCase([obst1, obst2])
 
     pyglet_lines = []
     def setup():
-        lidar.configure_sectors()
-        # for s in lidar.sector_objects:
-        #     s.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+        for s in lidar.sector_objects:
+            s.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+            s.pyglet_shape.opacity = 64
+
+
         #     s.pyglet_shape.visible = False
         #
         # lidar.sector_objects[2].pyglet_shape.visible = True
@@ -232,12 +253,16 @@ if __name__ == "__main__":
 
     def update():
 
-        lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
+        # lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
         readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
         print(readings)
 
-        # for s in lidar.sector_objects:
-        #     s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+        for p in lidar.scan_points:
+            p.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+            p.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+
+        for s in lidar.sector_objects:
+            s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
 
 
 
