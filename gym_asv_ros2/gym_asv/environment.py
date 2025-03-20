@@ -380,6 +380,7 @@ class RandomGoalEnv(BaseEnvironment):
             self.goal.position[1] = random_distance * np.sin(random_angle)
             self.goal.angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
 
+
 class RandomGoalWithDockObstacle(BaseEnvironment):
     """This environment have a random goal position and heading, aswell as a
     obstacle behind the goal position making it a dock. The dock will always spawn in front of the vessel."""
