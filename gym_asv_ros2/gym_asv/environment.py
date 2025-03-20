@@ -228,52 +228,14 @@ class BaseEnvironment(gym.Env):
             vessel_velocity[1], # sway
             los_heading_error, # line of sigth error (angle between vessel and dock)
             # Goal
-            goal_dist_error,
-            goal_heading_error
+            goal_dist_error, # Distance to goal
+            goal_heading_error # alignment error between heading and goal heading
         ])
 
         per = lidar_readings/self.lidar_sensor.max_range
 
         obs = np.concatenate([nav, per])
         return obs
-
-
-    def closure_reward(self) -> float:
-        """The closure reward. Positive reward for moving towards goal and
-        lowering heading error, Negative reward for increasing goal distance
-        and increasing heading error"""
-        reward = 0
-        if self.collision:
-            reward = -500
-            return reward
-
-        if self.reached_goal:
-            reward = 1000
-            return reward
-
-        # Closure term
-        last_vessel_position = self.vessel._prev_states[-1, 0:2]
-        current_vessel_position = self.vessel.position
-        goal_position = self.goal.position
-
-        relative_dist_to_goal = np.linalg.norm(goal_position - current_vessel_position)
-        last_relative_dist_to_goal = np.linalg.norm(
-            goal_position - last_vessel_position
-        )
-        closure_term = last_relative_dist_to_goal - relative_dist_to_goal
-
-        # Heading term
-        last_vessel_heading = self.vessel._prev_states[-1, 2]
-        current_vessel_heading = self.vessel.heading
-        last_vessel_heading_error = np.abs(geom.princip(self.goal.angle - last_vessel_heading))
-        current_vessel_heading_error = np.abs(geom.princip(self.goal.angle - current_vessel_heading))
-        heading_term = last_vessel_heading_error - current_vessel_heading_error
-
-        reward = closure_term + heading_term
-        print(f"[env.reward] closure_reward {closure_term}, heading_term: {heading_term}")
-
-        return float(reward)
-
 
     def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
 
@@ -429,8 +391,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
 
         self.init_level = self.level0
-        # self.level1(True)
-        # self.level2(True)
         self.init_level(False)
 
     def _setup(self):
