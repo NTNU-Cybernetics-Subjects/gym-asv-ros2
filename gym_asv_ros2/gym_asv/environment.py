@@ -238,19 +238,6 @@ class BaseEnvironment(gym.Env):
         return obs
 
 
-    # def penalty_reward(self, observation: np.ndarray) -> float:
-    #
-    #     if self.collision:
-    #         reward = -500.0
-    #         return reward
-    #
-    #     if self.reached_goal:
-    #         reward = 1000.0
-    #         return reward
-                
-        # distance_penalty = -observation[3]
-
-
     def closure_reward(self) -> float:
         """The closure reward. Positive reward for moving towards goal and
         lowering heading error, Negative reward for increasing goal distance
@@ -290,7 +277,7 @@ class BaseEnvironment(gym.Env):
 
     def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
 
-        if self.collision:
+        if self.collision: # TODO: Consider adding collision that scales with speed
             reward = -500.0
             return reward
 
@@ -309,20 +296,12 @@ class BaseEnvironment(gym.Env):
         # alginment term
         current_goal_alignment_error = abs(current_obs[4])
         last_goal_alignment_error = abs(last_obs[4])
-        #
+        
         decay_factor = 0.7
         closure_exponential_factor = np.exp(-current_distance_error * decay_factor)
         alignment_weight = closure_exponential_factor * beta
         
         alignment_reward = ( last_goal_alignment_error - current_goal_alignment_error) * alignment_weight
-        # if np.abs(alignment_reward) > 0:
-        #     print(f"[reward] distance_reward: {distance_reward}, align_weight: {alignment_weight}, align_reward: {alignment_reward}")
-
-
-        # align_reward = 0
-        # if current_distance_error < 2:
-        #     goal_alignment = current_obs[4]
-        #     align_reward = np.exp(-abs( goal_alignment ))
 
         reward = distance_reward + alignment_reward
         # print(f"[env.reward] distance_reward = {distance_reward}, align_reward {align_reward}")
@@ -449,7 +428,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level3
+        self.init_level = self.level0
         # self.level1(True)
         # self.level2(True)
         self.init_level(False)
@@ -469,32 +448,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         """
         print(msg)
 
-
-    def translate_coord(self, position: np.ndarray, angle: float, lenght:float):
-        x = position[0] + lenght * np.cos(angle)
-        y = position[1] + lenght * np.sin(angle)
-        return np.array([x,y])
-
-
-    def level1(self, update_goal=True):
-        """Random position, only spawned in a cone in front of vessel."""
-        if update_goal:
-            angle_offset = np.pi/2
-            self.goal.position[0] = np.random.randint(-15,15)
-            self.goal.position[1] = np.random.randint(8,20)
-            random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-            self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
-
-        random_dock_dist = self.vessel.length + np.random.uniform(2,3)
-
-        dock_obst = RectangularEntity(
-            self.translate_coord(self.goal.position, self.goal.angle, random_dock_dist),
-            width=1,
-            height=4,
-            angle=self.goal.angle
-        )
-        self.add_obstacle(dock_obst)
-
     def get_random_dock_side_coords(self, angle):
 
         random_distance_from_pos = np.random.uniform(2,5)
@@ -507,6 +460,50 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         pos_distance = random_distance_from_pos + random_radius
 
         return pos_distance, pos_angle, random_radius
+
+    def add_walls(self, update_goal=True):
+
+        # self.level2(update_goal=update_goal)
+        left_wall = RectangularEntity(np.array([ -50, 0 ]), 1, 100)
+        right_wall = RectangularEntity(np.array([50,0]), 1, 100)
+        top_wall = RectangularEntity(np.array([0, 50]), 100, 1)
+        bottom_wall = RectangularEntity(np.array([0, -50]), 100, 1)
+
+        self.add_obstacle(left_wall)
+        self.add_obstacle(right_wall)
+        self.add_obstacle(top_wall)
+        self.add_obstacle(bottom_wall)
+
+
+    def translate_coord(self, position: np.ndarray, angle: float, lenght:float):
+        x = position[0] + lenght * np.cos(angle)
+        y = position[1] + lenght * np.sin(angle)
+        return np.array([x,y])
+
+    def level0(self, update_goal=True):
+        """Makes a randomized goal position"""
+        if update_goal:
+            angle_offset = np.pi/2
+            self.goal.position[0] = np.random.randint(-15,15)
+            self.goal.position[1] = np.random.randint(8,20)
+            random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
+            self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
+
+
+    def level1(self, update_goal=True):
+        """Adds a dock obstacle behind the goal position."""
+
+        self.level0(update_goal=update_goal)
+
+        random_dock_dist = self.vessel.length + np.random.uniform(2,3)
+
+        dock_obst = RectangularEntity(
+            self.translate_coord(self.goal.position, self.goal.angle, random_dock_dist),
+            width=1,
+            height=4,
+            angle=self.goal.angle
+        )
+        self.add_obstacle(dock_obst)
 
 
     def level2(self, update_goal=True):
@@ -529,18 +526,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         )
 
     def level3(self, update_goal=True):
-
-        self.level2(update_goal=update_goal)
-        left_wall = RectangularEntity(np.array([ -50, 0 ]), 1, 100)
-        right_wall = RectangularEntity(np.array([50,0]), 1, 100)
-        top_wall = RectangularEntity(np.array([0, 50]), 100, 1)
-        bottom_wall = RectangularEntity(np.array([0, -50]), 100, 1)
-
-        self.add_obstacle(left_wall)
-        self.add_obstacle(right_wall)
-        self.add_obstacle(top_wall)
-        self.add_obstacle(bottom_wall)
-
+        pass
 
 
 
