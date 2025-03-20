@@ -14,7 +14,7 @@ from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, PolygonEnt
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
-from gym_asv_ros2.gym_asv.sensors import LidarSimulator
+from gym_asv_ros2.gym_asv.sensors import LidarSimulator, SectorLidar
 
 from gym_asv_ros2.logg import record_nested_dict
 
@@ -48,10 +48,12 @@ class BaseEnvironment(gym.Env):
         self.collision = False
 
         # self.n_navigation_features = 6
-        self.n_perception_features = n_perception_features # if 0, only navigation features is used
+        # self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        # self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        self.lidar_sensor = SectorLidar(30)
+        self.n_perception_features = self.lidar_sensor.n_sectors
 
         # Use same shape on goal position as vessel
         self.goal = PolygonEntity(
@@ -67,11 +69,11 @@ class BaseEnvironment(gym.Env):
 
         self.observation_space = gym.spaces.Box(
             low = np.array([
-                -2.0, -0.3, -np.pi, -100, -np.pi,
+                -2.0, -0.3, -np.pi, -50,-50, -np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             high = np.array([
-                3.0, 0.3, np.pi, 100, np.pi,
+                3.0, 0.3, np.pi, 50, 50, np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             dtype=np.float64
@@ -123,9 +125,18 @@ class BaseEnvironment(gym.Env):
         # Init the dock
         self.goal.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
         
+
         # Init lidar Visuals
-        for ray_line in self.lidar_sensor._ray_lines:
-            ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+        if isinstance(self.lidar_sensor, SectorLidar):
+            for s in self.lidar_sensor.sector_objects:
+                s.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+                s.pyglet_shape.opacity = 64
+
+        # elif isinstance(self.lidar_sensor, LidarSimulator):
+        #     for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
+        #         ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+
 
         print("[env] Visualizatin intialized.")
 
@@ -147,15 +158,25 @@ class BaseEnvironment(gym.Env):
         for obst in self.obstacles:
             obst.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
-        # Update lidar visualization
-        for ray_line in self.lidar_sensor._ray_lines:
-            ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        # update lidar visualization
+        if isinstance(self.lidar_sensor, SectorLidar):
+            for s in self.lidar_sensor.sector_objects:
+                s.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
-            # Only draw the rays that are hitting something
-            visible = False
-            if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
-                visible = True
-            ray_line.pyglet_shape.visible = visible
+            # show points
+            for p in self.lidar_sensor.scan_points:
+                p.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch) # Scan points gets recreated each iteration
+                p.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+        # Update lidar visualization
+        # for ray_line in self.lidar_sensor._ray_lines:
+        #     ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+        #
+        #     # Only draw the rays that are hitting something
+        #     visible = False
+        #     if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+        #         visible = True
+        #     ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
 
@@ -251,8 +272,8 @@ class BaseEnvironment(gym.Env):
         last_obs = last_observation.flatten()
 
         # distance term
-        current_distance_error = current_obs[3]
-        last_distance_error = last_obs[3]
+        current_distance_error = np.linalg.norm(current_obs[3:5])
+        last_distance_error = np.linalg.norm( last_obs[3:5] )
         distance_reward = ( last_distance_error - current_distance_error ) * alpha
 
         # alginment term
@@ -575,9 +596,10 @@ def play(env):
 
 
         print_info = {k: info[k] for k in info if k != "observation"}
-        # if t % 10 == 0:
-        #     print("\033c")
-        #     record_nested_dict(print, info)
+        if t % 10 == 0:
+            print("\033c")
+            record_nested_dict(print, info)
+            print(f"reward {reward}")
         # print(info)
         # print(reward)
 

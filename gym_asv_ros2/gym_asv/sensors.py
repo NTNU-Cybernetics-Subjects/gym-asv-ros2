@@ -109,11 +109,10 @@ class LidarSimulator:
 
 class SectorLidar:
 
-    def __init__(self, max_range: float, num_rays: int) -> None:
+    def __init__(self, max_range: float) -> None:
 
         self.max_range = float( max_range ) # [m]
-        self.num_rays = num_rays
-
+        # self.num_rays = num_rays
 
         # number of sectors in [front, left, back, right]
         self.sector_config = [10, 10, 10, 10]
@@ -123,33 +122,52 @@ class SectorLidar:
 
         self.sector_objects = []
 
+        self.configure_sectors()
+
     def sense(self, position: np.ndarray, heading: float, obstacles: Sequence[BaseEntity]):
 
-        self.scan_points.clear()
+        self.scan_points.clear() # NOTE: For debuging
         # Update sector objects before sensing
         self.update_sectors(position, heading)
 
         lidar_pos = shapely.Point(position)
         sector_readings = np.full_like(self.sector_objects, self.max_range, dtype=np.float32)
 
+        obstacles_union = shapely.unary_union([obs.boundary for obs in obstacles])
+
         for i, sector in enumerate( self.sector_objects ):
 
             current_sector_distance = self.max_range
 
-            for obs in obstacles:
-                intersection = sector.boundary.intersection(obs.boundary)
+            intersection = sector.boundary.intersection(obstacles_union)
 
-                if intersection.is_empty:
-                    continue
-                
-                p_intersect, _ = nearest_points(intersection, lidar_pos)
-                distance = lidar_pos.distance(p_intersect)
-                # current_sector_distance = min(current_sector_distance, distance)
-                if distance < current_sector_distance:
-                    current_sector_distance = distance
-                    self.scan_points.append(p_intersect)
-            
+            if intersection.is_empty:
+                continue
+
+            closest_point, nearest_obstacle = nearest_points(intersection, lidar_pos)
+
+            intersecting_distance = closest_point.distance(nearest_obstacle)
+            if intersecting_distance < current_sector_distance:
+                current_sector_distance = intersecting_distance
+                self.scan_points.append(CircularEntity(np.array([ closest_point.x, closest_point.y]), 0.2, color=(127,0,0))) # NOTE: for debuging
+
             sector_readings[i] = current_sector_distance
+
+
+            # for obs in obstacles:
+            #     intersection = sector.boundary.intersection(obs.boundary)
+            #
+            #     if intersection.is_empty:
+            #         continue
+            #
+            #     p_intersect, _ = nearest_points(intersection, lidar_pos)
+            #     distance = lidar_pos.distance(p_intersect)
+            #     # current_sector_distance = min(current_sector_distance, distance)
+            #     if distance < current_sector_distance:
+            #         current_sector_distance = distance
+            #         self.scan_points.append(CircularEntity(np.array([ p_intersect.x, p_intersect.y]), 0.2, color=(127,0,0))) # NOTE: for debuging
+            #
+            # sector_readings[i] = current_sector_distance
 
         return sector_readings
 
@@ -161,6 +179,7 @@ class SectorLidar:
             s.init_boundary()
 
     def configure_sectors(self):
+        """Make the sectors and add them to sector_object list."""
 
         sector_ranges = np.array([
             [ 3*np.pi/2, 2*np.pi ], # front
