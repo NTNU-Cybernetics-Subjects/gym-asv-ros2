@@ -17,6 +17,7 @@ from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 from gym_asv_ros2.gym_asv.sensors import LidarSimulator, SectorLidar
 
 from gym_asv_ros2.logg import record_nested_dict
+from gym_asv_ros2.gym_asv.utils.timer import Timer
 
 # Better debug
 from rich.traceback import install as install_rich_traceback
@@ -48,12 +49,12 @@ class BaseEnvironment(gym.Env):
         self.collision = False
 
         # self.n_navigation_features = 6
-        # self.n_perception_features = n_perception_features # if 0, only navigation features is used
+        self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        # self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
-        self.lidar_sensor = SectorLidar(30)
-        self.n_perception_features = self.lidar_sensor.n_sectors
+        self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        # self.lidar_sensor = SectorLidar(30)
+        # self.n_perception_features = self.lidar_sensor.n_sectors
 
         # Use same shape on goal position as vessel
         self.goal = PolygonEntity(
@@ -69,11 +70,11 @@ class BaseEnvironment(gym.Env):
 
         self.observation_space = gym.spaces.Box(
             low = np.array([
-                -2.0, -0.3, -np.pi, -50,-50, -np.pi,
+                -2.0, -0.3, -np.pi, -50, -np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             high = np.array([
-                3.0, 0.3, np.pi, 50, 50, np.pi,
+                3.0, 0.3, np.pi, 50, np.pi,
                 *[0.0 for _ in range(self.n_perception_features)]
             ]),
             dtype=np.float64
@@ -132,11 +133,11 @@ class BaseEnvironment(gym.Env):
                 s.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
                 s.pyglet_shape.opacity = 64
 
-        # elif isinstance(self.lidar_sensor, LidarSimulator):
-        #     for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
-        #         ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-
-
+        # Init lidar Visuals
+        elif isinstance(self.lidar_sensor, LidarSimulator):
+            for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
+                ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+                ray_line.pyglet_shape.opacity = 64
 
         print("[env] Visualizatin intialized.")
 
@@ -169,14 +170,15 @@ class BaseEnvironment(gym.Env):
                 p.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
         # Update lidar visualization
-        # for ray_line in self.lidar_sensor._ray_lines:
-        #     ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
-        #
-        #     # Only draw the rays that are hitting something
-        #     visible = False
-        #     if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
-        #         visible = True
-        #     ray_line.pyglet_shape.visible = visible
+        elif isinstance(self.lidar_sensor, LidarSimulator):
+            for ray_line in self.lidar_sensor._ray_lines:
+                ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+
+                # Only draw the rays that are hitting something
+                # visible = False
+                # if ray_line.boundary.length < ( self.lidar_sensor.max_range -0.1):
+                #     visible = True
+                # ray_line.pyglet_shape.visible = visible
 
         self.viewer.update_screen()
 
@@ -272,8 +274,10 @@ class BaseEnvironment(gym.Env):
         last_obs = last_observation.flatten()
 
         # distance term
-        current_distance_error = np.linalg.norm(current_obs[3:5])
-        last_distance_error = np.linalg.norm( last_obs[3:5] )
+        # current_distance_error = np.linalg.norm(current_obs[3:5])
+        # last_distance_error = np.linalg.norm( last_obs[3:5] )
+        current_distance_error = current_obs[3]
+        last_distance_error = last_obs[3]
         distance_reward = ( last_distance_error - current_distance_error ) * alpha
 
         # alginment term
@@ -412,7 +416,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level0
+        self.init_level = self.level2
         self.init_level(False)
 
     def _setup(self):
@@ -443,7 +447,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         return pos_distance, pos_angle, random_radius
 
-    def add_walls(self, update_goal=True):
+    def add_walls(self):
 
         # self.level2(update_goal=update_goal)
         left_wall = RectangularEntity(np.array([ -50, 0 ]), 1, 100)
@@ -466,10 +470,13 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         """Makes a randomized goal position"""
         if update_goal:
             angle_offset = np.pi/2
-            self.goal.position[0] = np.random.randint(-15,15)
-            self.goal.position[1] = np.random.randint(8,20)
-            random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-            self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
+            self.goal.position[0] = np.random.randint(-20,20)
+            self.goal.position[1] = np.random.randint(10,20)
+            # random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
+            random_angle = np.random.uniform(-np.pi/4, np.pi/4) # -45°, 45°
+            # random_angle = np.pi/4
+            # self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
+            self.goal.angle = angle_offset + random_angle
 
 
     def level1(self, update_goal=True):
@@ -573,8 +580,6 @@ class RandomGoalRandomObstEnv(BaseEnvironment):
 
 
 
-
-
 ### -- debugging ---
 def play(env):
     env.reset()
@@ -582,12 +587,13 @@ def play(env):
 
     listner = KeyboardListner()
     listner.start_listner()
+    clock = Timer()
 
     t = 0
-    start_time = time.time()
     done = False
     while True:
-        start_time = time.time()
+        # start_time = time.time()
+        clock.tic()
         if listner.quit:
             break
 
@@ -608,11 +614,8 @@ def play(env):
             # print(env.cumulative_reward)
             env.reset()
         env.render()
-        end_time = time.time()
-        run_time = end_time - start_time
-        # print(0.1/run_time)
-        # print(end_time - start_time)
-        # time.sleep(0.2 - run_time)
+        elapsed_time = clock.toc()
+        # print(f"fps: {1//elapsed_time}")
         # print(f"vessel_pos: {env.vessel.position}, vessel_heading: {env.vessel.heading}, dock_pos: {env.dock.position}, dock_angle: {env.dock.angle}")
         t += 1
         # time.sleep(env.t_step)
