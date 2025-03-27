@@ -515,7 +515,30 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         )
 
     def level3(self, update_goal=True):
-        pass
+        """Extends level 1, by adding a obstacle in direct line of sight to the desired position."""
+
+        self.level1(update_goal=update_goal)
+        
+        los_angle = np.arctan2(self.goal.position[1], self.goal.position[0])
+        random_angle_offset = np.random.uniform(0, np.pi/12) * np.random.choice([-1, 1])
+        angle = los_angle + random_angle_offset
+
+        random_radius = np.random.uniform(0.7, 2)
+
+        dist_min = 4 + random_radius
+        dist_max = np.linalg.norm(self.goal.position) - 3 - random_radius
+
+        random_distance = np.random.uniform(dist_min, dist_max)
+ 
+        obst_pos = self.translate_coord(np.array([0,0]), angle, random_distance)
+        self.add_obstacle(CircularEntity(obst_pos, random_radius))
+
+
+
+
+
+
+
 
 
 
