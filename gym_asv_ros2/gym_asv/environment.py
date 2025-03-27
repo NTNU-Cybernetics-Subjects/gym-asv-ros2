@@ -75,7 +75,7 @@ class BaseEnvironment(gym.Env):
             ]),
             high = np.array([
                 3.0, 0.3, np.pi, 50, np.pi,
-                *[0.0 for _ in range(self.n_perception_features)]
+                *[1.0 for _ in range(self.n_perception_features)] # FIXME: should be 1.0
             ]),
             dtype=np.float64
         )
@@ -256,6 +256,9 @@ class BaseEnvironment(gym.Env):
         ])
 
         per = lidar_readings/self.lidar_sensor.max_range
+        per = ( lidar_readings - self.vessel.width/2 ) / ( self.lidar_sensor.max_range - self.vessel.width/2 )
+        per = np.clip(per, 0, 1)
+
 
         obs = np.concatenate([nav, per])
         return obs
@@ -410,13 +413,13 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
     """This environment have a random goal position and heading, aswell as a
     obstacle behind the goal position making it a dock. The dock will always spawn in front of the vessel."""
 
-    def __init__(self, render_mode=None, *args, **kwargs) -> None:
+    def __init__(self, render_mode=None, n_perception_features=41, *args, **kwargs) -> None:
 
         # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
-        super().__init__(render_mode, n_perception_features=41, obstacles=None, *args, **kwargs)
+        super().__init__(render_mode, n_perception_features=n_perception_features, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level2
+        self.init_level = self.level3
         self.init_level(False)
 
     def _setup(self):
@@ -649,6 +652,6 @@ def play(env):
 if __name__ == "__main__":
     # env = RandomGoalEnv(render_mode="human")
     # env = RandomGoalRandomObstEnv(render_mode="human")
-    env = RandomGoalWithDockObstacle(render_mode="human")
+    env = RandomGoalWithDockObstacle(render_mode="human", n_perception_features=5)
 
     play(env)
