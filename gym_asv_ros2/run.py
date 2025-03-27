@@ -20,10 +20,10 @@ from gym_asv_ros2.logg import FileStorage, TrainingCallback, record_nested_dict
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 
 from gym_asv_ros2.gym_asv.network.radarCNN import PerceptionNavigationExtractor
+from gym_asv_ros2.gym_asv.utils.timer import Timer
 
 # Better debugging
 from rich.traceback import install as install_rich_traceback
-
 install_rich_traceback()
 
 
@@ -66,6 +66,7 @@ def train(file_storage: FileStorage, agent: str = ""):
         # ),  # FIXME: hardcoded should be same as in env
         # net_arch=dict(pi=[128, 64, 32], vf=[128, 64, 32]),
         # net_arch=dict(pi=[128, 64], vf=[128, 64]),
+        # net_arch=dict(pi=[128, 128, 128], vf=[128, 128, 128]),
         net_arch=dict(pi=[128, 128], vf=[128, 128]),
     )
 
@@ -75,7 +76,7 @@ def train(file_storage: FileStorage, agent: str = ""):
             "MlpPolicy",
             # "MultiInputPolicy",
             env=env,
-            # device="cpu",
+            device="cpu",
             verbose=True,
             policy_kwargs=policy_kwargs,
             # **hyperparams,
@@ -94,6 +95,7 @@ def train(file_storage: FileStorage, agent: str = ""):
         # Modify the log path to not overwrite the existing logs
         file_storage.info = file_storage.info / str(model.num_timesteps)
         file_storage.episode_summary = file_storage.episode_summary / str(model.num_timesteps)
+        file_storage.agents = file_storage.agents / f"from_{model.num_timesteps}"
 
     model.set_logger(
         sb3_logger.configure(str(file_storage.info), ["csv", "stdout", "tensorboard"])
@@ -112,16 +114,11 @@ def train(file_storage: FileStorage, agent: str = ""):
     print(f"traing finished, saving agent to: {agent_file}")
     model.save(agent_file.as_posix())
 
-
-def enjoy(file_storage: FileStorage, agent: str, time_stamp: str):
-    agent_path = file_storage.agent_picker(agent)
-    if not agent_path:
-        return
-    video_path = str(file_storage.videos / time_stamp)
+def enjoy(agent_file: str, video_folder: str):
 
     env_func = make_env_subproc(render_mode="rgb_array")
-    env = RecordVideo(env_func(), video_path, episode_trigger=lambda t: True)
-    model = PPO.load(agent_path, env=env)
+    env = RecordVideo(env_func(), video_folder, episode_trigger=lambda t: True)
+    model = PPO.load(agent_file, env=env)
 
     listner = KeyboardListner()
     listner.start_listner()
@@ -198,24 +195,40 @@ if __name__ == "__main__":
     )
     parser.add_argument("--logid", help="TOOD", default=time_stamp)
     parser.add_argument("--agent", help="TODO", default="")
-    args = parser.parse_args()
+    # parser.add_argument("--workdir", help="TODO", default="")
 
-    # print(args.logid)
-    file_storage = FileStorage("training", args.logid)
+    args = parser.parse_args()
+ 
+    # if args.workdir:
+    #     file_storage = FileStorage(args.workdir, args.logid)
+    # else:
+    # file_storage = FileStorage("raw_lidar_training/lidar_raw_256_128_64", args.logid)
+    file_storage = FileStorage("raw_lidar_training", args.logid)
+    # file_storage = FileStorage("training", args.logid)
+
 
     if args.mode == "enjoy":
-        enjoy(file_storage, args.agent, time_stamp)
+        agents_sub_folder = [dir.name for dir in file_storage.agents.iterdir() if ".zip" not in dir.name]
+        agents_sub_folder.append("main")
+        folder_choise = file_storage.content_picker(agents_sub_folder)
+        sub_agents_path = "" if folder_choise == "main" else folder_choise
+
+        # sub_agents_path = "from_900000"
+        agent_path = file_storage.agent_picker(args.agent, sub_agents_path)
+        # if not agent_path:
+        #     return
+        video_path = str(file_storage.videos / time_stamp)
+        # enjoy(file_storage, args.agent, time_stamp)
+        enjoy(agent_path, video_path)
+
 
     elif args.mode == "train":
-        start_time = time.time()
+        clock = Timer()
 
         train(file_storage, agent=args.agent)
 
-        # Format the time printout
-        end_time = time.time()
-        elapsed_time = time.gmtime(end_time - start_time)
-        formatted_time = time.strftime("%H:%M:%S", elapsed_time)
-        print(f"elapsed time: {formatted_time}")
+        elapsed_time = clock.toc()
+        print(f"elapsed time: {clock.prettify(elapsed_time)}")
 
     elif args.mode == "play":
         play_env(make_env_subproc(render_mode="human")())

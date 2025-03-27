@@ -45,10 +45,26 @@ class FileStorage:
 
         
         return False
+    
+    def content_picker(self, content: list):
 
-    def agent_picker(self, name="") -> str:
+        for i, item in enumerate(content):
+            print(i, item)
 
-        agents = [file.name for file in self.agents.iterdir() if file.is_file()]
+        try:
+            index = int(input("-> "))
+            return content[index]
+
+        except ValueError:
+            print("Invalid Choise.")
+            return ""
+
+
+    def agent_picker(self, name="", agents_sub_folder="") -> str:
+
+        agents_folder = self.agents / agents_sub_folder if agents_sub_folder else self.agents
+
+        agents = [file.name for file in agents_folder.iterdir() if file.is_file()]
 
         if len(agents) <= 0:
             print("There is no agents in file storage")
@@ -68,17 +84,20 @@ class FileStorage:
         agents.sort(key=sort_func)
 
         # Prompt for agent to use
-        for i in range(len(agents)):
-            print(i, agents[i])
+        agent_file = self.content_picker(content=agents)
+        return str(agents_folder / agent_file)
 
-        try:
-            index = int(input("Which agent [int]? "))
-            return str( self.agents / agents[index] )
-
-        except ValueError:
-            print("Invalid Choise.")
-        
-        return ""
+        # for i in range(len(agents)):
+        #     print(i, agents[i])
+        #
+        # try:
+        #     index = int(input("Which agent [int]? "))
+        #     return str( agents_folder / agents[index] )
+        #
+        # except ValueError:
+        #     print("Invalid Choise.")
+        #
+        # return ""
 
 
 class TrainingCallback(BaseCallback):
@@ -231,8 +250,11 @@ def test_record_nested_dict():
 
 if __name__ == "__main__":
     # test_record_nested_dict()
-    test = FileStorage("training", "lidar_with_dock_obst_5KK")
-    test.agent_picker()
+    test = FileStorage("raw_lidar_training", "lidar_raw_3x128")
+    # test.agent_picker()
+    t = ["a", "b", "c", "d"]
+    choise = test.content_picker(t)
+    print(choise)
     # print(f"Storage was: {test.work_dir}")
     # test = test.new_sub_storage_if_exists()
     # print(f"Storage is: {test.work_dir}")
