@@ -5,7 +5,7 @@ from pathlib import Path
 import gymnasium as gym
 import numpy as np
 from datetime import datetime
-import optuna
+# import optuna
 
 from stable_baselines3 import PPO
 import stable_baselines3.common.logger as sb3_logger
@@ -139,51 +139,51 @@ def enjoy(agent_file: str, video_folder: str):
             env.render()
 
 
-def optimize_hyperparams():
-    def evaluate_model(model, env, n_eval_episodes=5):
-        rewards = []
-        for _ in range(n_eval_episodes):
-            obs, _ = env.reset()
-            done = False
-            total_reward = 0
-            while not done:
-                action, _ = model.predict(obs, deterministic=True)
-                obs, reward, done, _, _ = env.step(action)
-                total_reward += reward
-
-            rewards.append(total_reward)
-
-        return np.mean(rewards)
-
-    def objective(trial):
-        learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3)
-        n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048])
-        batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
-        gamma = trial.suggest_float("gamma", 0.99, 0.999)
-
-        env_count = 1
-        env = SubprocVecEnv(
-            [make_env_subproc(render_mode=None) for _ in range(env_count)]
-        )
-        env = VecMonitor(env)
-
-        model = PPO(
-            "MlpPolicy",
-            env,
-            learning_rate=learning_rate,
-            n_steps=n_steps,
-            batch_size=batch_size,
-            gamma=gamma,
-            verbose=0,
-        )
-        model.learn(total_timesteps=100000)
-
-        return evaluate_model(model, env)
-
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=20)
-
-    print("Best hyperparameters:", study.best_params)
+# def optimize_hyperparams():
+#     def evaluate_model(model, env, n_eval_episodes=5):
+#         rewards = []
+#         for _ in range(n_eval_episodes):
+#             obs, _ = env.reset()
+#             done = False
+#             total_reward = 0
+#             while not done:
+#                 action, _ = model.predict(obs, deterministic=True)
+#                 obs, reward, done, _, _ = env.step(action)
+#                 total_reward += reward
+#
+#             rewards.append(total_reward)
+#
+#         return np.mean(rewards)
+#
+#     def objective(trial):
+#         learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3)
+#         n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048])
+#         batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
+#         gamma = trial.suggest_float("gamma", 0.99, 0.999)
+#
+#         env_count = 1
+#         env = SubprocVecEnv(
+#             [make_env_subproc(render_mode=None) for _ in range(env_count)]
+#         )
+#         env = VecMonitor(env)
+#
+#         model = PPO(
+#             "MlpPolicy",
+#             env,
+#             learning_rate=learning_rate,
+#             n_steps=n_steps,
+#             batch_size=batch_size,
+#             gamma=gamma,
+#             verbose=0,
+#         )
+#         model.learn(total_timesteps=100000)
+#
+#         return evaluate_model(model, env)
+#
+#     study = optuna.create_study(direction="maximize")
+#     study.optimize(objective, n_trials=20)
+#
+#     print("Best hyperparameters:", study.best_params)
 
 
 if __name__ == "__main__":
