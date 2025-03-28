@@ -43,17 +43,17 @@ def train(file_storage: FileStorage, agent: str = ""):
         return
 
     hyperparams = {
-        "learning_rate": 2.5e-4,  # Default 3e-4
-        "n_steps": 256,  # Default 2048
+        "learning_rate": 3e-4,  # Default 3e-4
+        "n_steps": 4096,  # Default 2048
         "batch_size": 64,  # Default 64
-        "n_epochs": 4,  # Default 10
+        "n_epochs": 10,  # Default 10
         "gamma": 0.99,  # Default 0.99
         "gae_lambda": 0.95,  # Default 0.95
-        "ent_coef": 0.01,  # Default 0.0
+        "ent_coef": 0.0,  # Default 0.0
     }
 
     env_count = 4
-    total_timesteps = 500_000
+    total_timesteps = 1_000_000
     save_agent_frequency = 10000
 
     env = SubprocVecEnv([make_env_subproc(render_mode=None) for _ in range(env_count)])
@@ -76,10 +76,10 @@ def train(file_storage: FileStorage, agent: str = ""):
             "MlpPolicy",
             # "MultiInputPolicy",
             env=env,
-            device="cpu",
+            # device="cpu",
             verbose=True,
             policy_kwargs=policy_kwargs,
-            # **hyperparams,
+            **hyperparams,
         )
 
     # Load predefined agent
