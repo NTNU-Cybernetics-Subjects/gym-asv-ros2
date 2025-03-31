@@ -419,7 +419,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=n_perception_features, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level3
+        self.init_level = self.level1
         self.init_level(False)
 
     def _setup(self):
