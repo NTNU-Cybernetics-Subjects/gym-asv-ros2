@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-import pyglet
 import shapely.affinity
 import shapely.geometry
+# import pyglet.shapes
+# import pyglet.graphics
+
+import os
+import pyglet
+if not os.environ.get("DISPLAY"):
+    pyglet.options['headless'] = True
 
 
 class BaseEntity:
@@ -204,20 +210,5 @@ class LineEntity(BaseEntity):
         self._pyglet_shape.y2 = screen_end_position[1]
 
 
-
-
-
-
-
-# class arrowEnity(PolygonEntity):
-#
-#     def __init__(self, vertecies: list, position: np.ndarray, angle: float, color: tuple) -> None:
-#
-#
-#         super().__init__(vertecies, position, angle, color)
-
-
-
 if __name__ == "__main__":
     pass
-    # c = CircularObstacle(np.array([0, 0]), 2)
