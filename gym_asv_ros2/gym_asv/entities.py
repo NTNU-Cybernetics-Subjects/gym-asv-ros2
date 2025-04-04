@@ -3,13 +3,15 @@ from abc import ABC, abstractmethod
 import numpy as np
 import shapely.affinity
 import shapely.geometry
-# import pyglet.shapes
-# import pyglet.graphics
 
 import os
 import pyglet
 if not os.environ.get("DISPLAY"):
+    print("[enteties] Importing pyglet and setting headless=True, shadow_window=False")
     pyglet.options['headless'] = True
+    pyglet.options["shadow_window"] = False
+
+
 
 
 class BaseEntity:
