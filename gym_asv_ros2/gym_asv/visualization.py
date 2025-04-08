@@ -4,6 +4,7 @@ from typing import Callable
 
 import numpy as np
 import pyglet
+# from pyglet.gl import Config
 import shapely.affinity
 
 from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity, PolygonEntity, RectangularEntity
@@ -17,7 +18,9 @@ BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:
 
-        self.window = pyglet.window.Window(window_width, window_height, visible=( not headless ))
+        
+        self.window = pyglet.window.Window( window_width, window_height,
+                                           visible=( not headless ))
         self.batch = pyglet.graphics.Batch()
 
         self.agent = None
@@ -28,6 +31,9 @@ class Visualizer:
         self.pixels_per_unit = self.window.width / 100
 
         self.camera_position = np.array([0,0])
+        gl_info = self.window.context.get_info()
+        print(f"[Visualizer] Using Renderer: {gl_info.get_renderer()}, Vendor: {gl_info.get_vendor()}, Version: {gl_info.get_version()}")
+
 
     def add_agent(self, agent_shape: shapely.geometry.Polygon):
         # Shape should be defined in origo
@@ -122,6 +128,7 @@ class Visualizer:
         
         shape.visible = visible
         return visible
+    
 
 
     def update_screen(self):

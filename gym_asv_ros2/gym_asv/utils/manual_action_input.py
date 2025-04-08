@@ -1,23 +1,23 @@
 import os
 
-if os.environ.get("DISPLAY"):
+# FIXME: The ROS_DISTRO check does only work in RID
+if os.environ.get("DISPLAY") and not os.environ.get("ROS_DISTRO"):
     from pynput import keyboard
+ 
 else:
     class keyboard:
-        def __init__(self) -> None:
-            pass
 
-        def Listner(self):
-            pass
+        dummy_keybaord = True
 
+        @classmethod
+        def Listener(cls, *args, **kwargs):
+            print("WARNING: initalizing dummy Listner due to no $DISPLAY found")
+            class dummy_listner:
+                
+                def start(self):
+                    pass
 
-# # FIXME: This is not a viable solution, does only work on my setup
-# if "ROS_DISTRO" in os.environ:
-#     class keyboard:
-#         def Listener(self):
-#             pass
-# else:
-#     from pynput import keyboard
+            return dummy_listner()
 
 # from pynput.keyboard import Key
 import numpy as np

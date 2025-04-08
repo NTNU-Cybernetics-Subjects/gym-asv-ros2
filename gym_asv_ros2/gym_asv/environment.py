@@ -75,7 +75,7 @@ class BaseEnvironment(gym.Env):
             ]),
             high = np.array([
                 3.0, 0.3, np.pi, 50, np.pi,
-                *[1.0 for _ in range(self.n_perception_features)] # FIXME: should be 1.0
+                *[1.0 for _ in range(self.n_perception_features)]
             ]),
             dtype=np.float64
         )
@@ -419,7 +419,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=n_perception_features, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level1
+        self.init_level = self.level3
         self.init_level(False)
 
     def _setup(self):
@@ -535,13 +535,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
  
         obst_pos = self.translate_coord(np.array([0,0]), angle, random_distance)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
-
-
-
-
-
-
-
 
 
 
