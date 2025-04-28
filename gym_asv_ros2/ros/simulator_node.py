@@ -3,41 +3,50 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
-from blueboat_interfaces.msg import BlueboatActuatorInputs, BlueboatState
+from microamp_interfaces.msg import ThrusterInputs, BoatState
 from std_msgs.msg import Float32MultiArray
 
 import numpy as np
 from gym_asv_ros2.gym_asv.entities import CircularEntity
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
-from gym_asv_ros2.gym_asv.environment import RandomGoalWithDockObstacle
+from gym_asv_ros2.gym_asv.environment import BaseEnvironment, RandomGoalBlindEnv, RandomGoalWithDockObstacle
+
 
 class SimulationNode(Node):
 
     def __init__(self):
         super().__init__("gym_asv_sim_node")
-
         self.action_sub = self.create_subscription(
-            BlueboatActuatorInputs,
-            "/blueboat/u",
+
+            ThrusterInputs,
+            "/microampere/control/thurst",
             self.thruster_input_callback,
-            10
+            1
         )
 
         self.vessel_state_pub = self.create_publisher(
-            BlueboatState,
-            "/blueboat/state",
-            10
+            BoatState,
+            "/microampere/state_est/pos_vel_kalman",
+            1
         )
 
-        self.lidar_pub = self.create_publisher(
+        # self.lidar_pub = self.create_publisher(
+        #     Float32MultiArray,
+        #     "/ouster/scan",
+        #     1
+        # )
+
+        self.waypoint_sub = self.create_subscription(
             Float32MultiArray,
-            "/blueboat/lidar",
-            10
+            "/waypoint",
+            self.waypoint_callback,
+            1
         )
 
         # Initialize env
-        self.env = RandomGoalWithDockObstacle(render_mode="human")
+        # self.env = RandomGoalWithDockObstacle(render_mode="human")
+        self.env = BaseEnvironment(render_mode="human")
         self.env.reset()
         self.env.render()
 
@@ -45,29 +54,39 @@ class SimulationNode(Node):
         self.action = np.array([0.0, 0.0])
 
         render_frequence = 0.01
-        observation_pub_frequence = 0.1
+        observation_pub_frequence = 0.01
         self.create_timer(render_frequence, self.render_callback)
-        self.create_timer(observation_pub_frequence, self.publish_observation)
+        self.create_timer(observation_pub_frequence, self.publish_state)
 
     def __del__(self):
         self.env.close()
 
+    def waypoint_callback(self, msg: Float32MultiArray):
+        waypoint = msg.data
+
+        # self.env.reset()
+        self.env.goal.position = np.array([waypoint[0], waypoint[1]])
+        self.env.goal.angle = waypoint[2]
+ 
+
     def render_callback(self):
         
         observation, reward, done, truncated, info = self.env.step(self.action)
+        # self.action[0], self.action[1] = 0.0, 0.0 # Reset action when we have used it
         self.last_observation = observation
 
-        if done or truncated:
-            self.env.reset()
-            self.publish_observation()
+        # if done or truncated:
+        #     self.env.reset()
+        #     self.publish_state()
 
         self.env.render()
 
-    def publish_observation(self):
+    def publish_state(self):
 
         # Publish state
-        sim_state = self.last_observation.flatten()[:6]
-        sim_state_msg = BlueboatState(
+        # sim_state = self.last_observation.flatten()[:6]
+        sim_state = self.env.vessel._state
+        sim_state_msg = BoatState(
             x=sim_state[0],
             y=sim_state[1],
             yaw=sim_state[2],
@@ -76,20 +95,21 @@ class SimulationNode(Node):
             yaw_r=sim_state[5]
         )
         self.vessel_state_pub.publish(sim_state_msg)
+        self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
 
         # Publish lidar
-        lidar_messurments = self.last_observation.flatten()[6:]
-        lidar_msg = Float32MultiArray(
-            data=lidar_messurments.tolist()
-        )
-        self.lidar_pub.publish(lidar_msg)
+        # lidar_messurments = self.last_observation.flatten()[6:]
+        # lidar_msg = Float32MultiArray(
+        #     data=lidar_messurments.tolist()
+        # )
+        # self.lidar_pub.publish(lidar_msg)
 
 
-    def thruster_input_callback(self, msg: BlueboatActuatorInputs):
-        self.get_logger().debug(f"got thruster msg: {msg.stb_prop_force, msg.port_prop_force}")
+    def thruster_input_callback(self, msg: ThrusterInputs):
+        self.get_logger().debug(f"got thruster msg: {msg.stb_prop_in, msg.port_prop_in}")
 
-        self.action[0] = msg.stb_prop_force
-        self.action[1] = msg.port_prop_force
+        self.action[0] = msg.stb_prop_in
+        self.action[1] = msg.port_prop_in
 
 
 def main(args=None):
@@ -99,8 +119,4 @@ def main(args=None):
 
     simulator_node.destroy_node()
     rclpy.shutdown()
-   
-
-
-
 
