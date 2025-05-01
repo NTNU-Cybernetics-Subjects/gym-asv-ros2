@@ -52,16 +52,22 @@ class AgentNode(Node):
             self.state_sub_callback,
             1
         )
-        self.real_vessel_state = np.zeros((6,))
+        # self.real_vessel_state = np.zeros((6,))
         # self.navtigation_features = np.zeros((5,))
 
         # State machine controll
-        self.run_state_sub = self.create_subscription(
-            Bool,
-            "gym_asv_ros2/run_state",
-            self.run_state_callback,
+        self.waypoint_sub = self.create_subscription(
+            Float32MultiArray,
+            "/gym_asv_ros2/internal/waypoint",
+            self.waypoint_callback,
             1
         )
+        # self.run_state_sub = self.create_subscription(
+        #     Bool,
+        #     "gym_asv_ros2/run_state",
+        #     self.run_state_callback,
+        #     1
+        # )
         self.run_state = False # Set the state of the controller
 
         # Action
@@ -81,9 +87,10 @@ class AgentNode(Node):
         self.agent = PPO.load(agent_file)
 
         # Set up the env and override the vessel model
-        self.real_env = RandomGoalBlindEnv(render_mode=None)
+        # self.real_env = RandomGoalBlindEnv(render_mode=None)
+        self.real_env = BaseEnvironment(render_mode=None, n_perception_features=0)
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
-        self.real_env.reset()
+        # self.real_env.reset()
         # self.env_initialzied = False
 
         self.wait_for_data_duration = Duration(seconds=1)
@@ -93,12 +100,39 @@ class AgentNode(Node):
         self.run_fequency = 0.1 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
         self.create_timer(self.run_fequency, self.run)
 
+        self.reached_goal_timer_iteration = 0
 
-    def run_state_callback(self, msg: Bool):
-        self.run_state = msg.data
+
+    def waypoint_callback(self, msg: Float32MultiArray):
+
+        self.run_state = True
         self.get_logger().info(f"Run status is set to: {self.run_state}")
 
+        # Set the waypoint
+        way_point = msg.data
+        self.real_env.goal.position = np.array([way_point[0], way_point[1]])
+        self.real_env.goal.angle = way_point[2]
+
+        self.real_env.vessel._init_state = self.real_env.vessel._state
+        self.real_env.reset()
+
+        
         # TODO: Initialize the waypoint and consider intialize env/vessel state on run_state=true
+        # self.real_env.vessel._init_state = self.real_vessel_state
+        # self.real_env.vessel._init_state = self.real_env.vessel._state
+
+        # self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
+        # self.waypoint_pub.publish(
+        #     Float32MultiArray(
+        #         data=[
+        #             self.real_env.goal.position[0],
+        #             self.real_env.goal.position[1],
+        #             self.real_env.goal.angle
+        #         ]
+        #     )
+        # )
+
+
 
     def state_sub_callback(self, msg: BoatState):
         """Make the navigation part of the observation when we can state update."""
@@ -113,6 +147,7 @@ class AgentNode(Node):
             msg.yaw_r,
         ])
 
+        # TODO: Any nessesary tranformations here
         # self.get_logger().info(f"vessel state: {vessel_state}")
         self.real_env.vessel.set_state(vessel_state)
 
@@ -122,8 +157,8 @@ class AgentNode(Node):
     def pub_action_to_pwm(self, action_stb: float, action_port: float):
 
         pwm_zero = 1500
-        pwm_high = 1900
-        pwm_low = 1100
+        pwm_high = 1700
+        pwm_low = 1300
         
         def action_to_pwm(per):
 
@@ -165,23 +200,32 @@ class AgentNode(Node):
 
         dummy_action = np.array([0.0, 0.0])
         observation, reward, done, truncated, info = self.real_env.step(dummy_action)
-        print(reward)
+        # print(reward)
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
+        self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
+
         if done:
             self.get_logger().info(f"Reached goal at, {self.real_env.goal.position}")
-            self.real_env.reset()
-            self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
-            self.waypoint_pub.publish(
-                Float32MultiArray(
-                    data=[
-                        self.real_env.goal.position[0],
-                        self.real_env.goal.position[1],
-                        self.real_env.goal.angle
-                    ]
-                )
-            )
+            # self.run_state = False
+            if self.reached_goal_timer_iteration >= 50:
+                self.run_state = False
+                self.reached_goal_timer_iteration = 0
+            self.reached_goal_timer_iteration += 1
+
+
+            # self.real_env.reset()
+            # self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
+            # self.waypoint_pub.publish(
+            #     Float32MultiArray(
+            #         data=[
+            #             self.real_env.goal.position[0],
+            #             self.real_env.goal.position[1],
+            #             self.real_env.goal.angle
+            #         ]
+            #     )
+            # )
 
         self.pub_action_to_pwm(
             action[0],

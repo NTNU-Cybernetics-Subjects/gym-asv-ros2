@@ -80,6 +80,7 @@ class SimulationNode(Node):
         #     self.publish_state()
 
         self.env.render()
+        self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
 
     def publish_state(self):
 
@@ -95,7 +96,6 @@ class SimulationNode(Node):
             yaw_r=sim_state[5]
         )
         self.vessel_state_pub.publish(sim_state_msg)
-        # self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
 
         # Publish lidar
         # lidar_messurments = self.last_observation.flatten()[6:]
@@ -107,7 +107,7 @@ class SimulationNode(Node):
 
     def thruster_input_callback(self, msg: ThrusterInputs):
 
-        self.get_logger().info(f"got thruster msg: {msg.stb_prop_in, msg.port_prop_in}")
+        # self.get_logger().info(f"got thruster msg: {msg.stb_prop_in, msg.port_prop_in}")
 
         pwm_zero = 1500
         pwm_high = 1900
