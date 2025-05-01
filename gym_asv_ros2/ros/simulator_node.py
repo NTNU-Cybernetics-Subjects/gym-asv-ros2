@@ -39,7 +39,7 @@ class SimulationNode(Node):
 
         self.waypoint_sub = self.create_subscription(
             Float32MultiArray,
-            "/waypoint",
+            "/gym_asv_ros2/internal/waypoint",
             self.waypoint_callback,
             1
         )
@@ -53,9 +53,9 @@ class SimulationNode(Node):
         # Action
         self.action = np.array([0.0, 0.0])
 
-        render_frequence = 0.01
+        simulation_frequency = 0.1
         observation_pub_frequence = 0.01
-        self.create_timer(render_frequence, self.render_callback)
+        self.create_timer(simulation_frequency, self.render_callback)
         self.create_timer(observation_pub_frequence, self.publish_state)
 
     def __del__(self):

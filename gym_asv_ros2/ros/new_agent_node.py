@@ -9,7 +9,7 @@ from microamp_interfaces.msg import ThrusterInputs, BoatState
 import numpy as np
 from stable_baselines3 import PPO
 
-from threading import Lock
+# from threading import Lock
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
 class RosVessel(Vessel):
@@ -63,10 +63,10 @@ class AgentNode(Node):
             1
         )
 
-        # send waypoint
+        # send waypoint to simulator
         self.waypoint_pub = self.create_publisher(
             Float32MultiArray,
-            "/waypoint",
+            "/gym_asv_ros2/internal/waypoint",
             1
         )
 
@@ -76,12 +76,13 @@ class AgentNode(Node):
         self.real_env = RandomGoalBlindEnv(render_mode=None)
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
         self.real_env.reset()
+        # self.env_initialzied = False
 
         self.wait_for_data_duration = Duration(seconds=1)
         self.last_vessel_state_recived = self.get_clock().now() - self.wait_for_data_duration
 
         # The frequency the controller is running on
-        self.run_fequency = 0.01
+        self.run_fequency = 0.01 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
         self.create_timer(self.run_fequency, self.run)
 
 
@@ -97,6 +98,7 @@ class AgentNode(Node):
             msg.sway,
             msg.yaw_r,
         ])
+
         # self.get_logger().info(f"vessel state: {vessel_state}")
         self.real_env.vessel.set_state(vessel_state)
 
@@ -117,13 +119,13 @@ class AgentNode(Node):
             return
 
         dummy_action = np.array([0.0, 0.0])
-
         observation, reward, done, truncated, info = self.real_env.step(dummy_action)
+        print(reward)
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
         if done:
-            self.get_logger().info(f"Simulations reached goal at, {self.real_env.goal.position}")
+            self.get_logger().info(f"Reached goal at, {self.real_env.goal.position}")
             self.real_env.reset()
             self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
             self.waypoint_pub.publish(
@@ -135,7 +137,6 @@ class AgentNode(Node):
                     ]
                 )
             )
-            
 
         action_msg = ThrusterInputs(
             stb_prop_in=float(action[0]),
