@@ -2,8 +2,7 @@ from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, BaseEnvironment
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
-
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 from microamp_interfaces.msg import ThrusterInputs, BoatState
 
 import numpy as np
@@ -56,6 +55,15 @@ class AgentNode(Node):
         self.real_vessel_state = np.zeros((6,))
         # self.navtigation_features = np.zeros((5,))
 
+        # State machine controll
+        self.run_state_sub = self.create_subscription(
+            Bool,
+            "gym_asv_ros2/run_state",
+            self.run_state_callback,
+            1
+        )
+        self.run_state = False # Set the state of the controller
+
         # Action
         self.action_pub = self.create_publisher(
             ThrusterInputs,
@@ -82,9 +90,15 @@ class AgentNode(Node):
         self.last_vessel_state_recived = self.get_clock().now() - self.wait_for_data_duration
 
         # The frequency the controller is running on
-        self.run_fequency = 0.01 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
+        self.run_fequency = 0.1 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
         self.create_timer(self.run_fequency, self.run)
 
+
+    def run_state_callback(self, msg: Bool):
+        self.run_state = msg.data
+        self.get_logger().info(f"Run status is set to: {self.run_state}")
+
+        # TODO: Initialize the waypoint and consider intialize env/vessel state on run_state=true
 
     def state_sub_callback(self, msg: BoatState):
         """Make the navigation part of the observation when we can state update."""
@@ -105,16 +119,47 @@ class AgentNode(Node):
         self.last_vessel_state_recived = self.get_clock().now()
 
 
+    def pub_action_to_pwm(self, action_stb: float, action_port: float):
+
+        pwm_zero = 1500
+        pwm_high = 1900
+        pwm_low = 1100
+        
+        def action_to_pwm(per):
+
+            if per >= 0.0:
+                pwm = pwm_zero + per * (pwm_high - pwm_zero)
+            else:
+                pwm = pwm_zero + per * (pwm_zero - pwm_low)
+        
+            return pwm
+
+        pwm_stb = action_to_pwm(action_stb)
+        pwm_port = action_to_pwm(action_port)
+
+        thruster_msg = ThrusterInputs(
+            stb_prop_in = float(pwm_stb),
+            port_prop_in = float(pwm_port),
+            pwm = True
+        )
+        self.action_pub.publish(thruster_msg)
+
+        
     def run(self):
 
+        if self.run_state == 0:
+            self.pub_action_to_pwm(0.0, 0.0)
+            return
+        
         # Check if have not gotten state data
         time_now = self.get_clock().now()
         if time_now > self.last_vessel_state_recived + self.wait_for_data_duration:
-            action_msg = ThrusterInputs(
-                stb_prop_in=float(0.0),
-                port_prop_in=float(0.0)
-            )
-            self.action_pub.publish(action_msg)
+            self.pub_action_to_pwm(0.0, 0.0)
+            # action_msg = ThrusterInputs(
+            #     stb_prop_in=float(0.0),
+            #     port_prop_in=float(0.0)
+            # )
+            # self.action_pub.publish(action_msg)
             # self.get_logger().info("Did not recive sensor data, setting 0 thrust")
             return
 
@@ -138,11 +183,15 @@ class AgentNode(Node):
                 )
             )
 
-        action_msg = ThrusterInputs(
-            stb_prop_in=float(action[0]),
-            port_prop_in=float(action[1])
+        self.pub_action_to_pwm(
+            action[0],
+            action[1]
         )
-        self.action_pub.publish(action_msg)
+        # action_msg = ThrusterInputs(
+        #     stb_prop_in=float(action[0]),
+        #     port_prop_in=float(action[1])
+        # )
+        # self.action_pub.publish(action_msg)
 
 
 def main(args=None):

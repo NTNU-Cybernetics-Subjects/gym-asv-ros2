@@ -95,7 +95,7 @@ class SimulationNode(Node):
             yaw_r=sim_state[5]
         )
         self.vessel_state_pub.publish(sim_state_msg)
-        self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
+        # self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
 
         # Publish lidar
         # lidar_messurments = self.last_observation.flatten()[6:]
@@ -106,10 +106,26 @@ class SimulationNode(Node):
 
 
     def thruster_input_callback(self, msg: ThrusterInputs):
-        self.get_logger().debug(f"got thruster msg: {msg.stb_prop_in, msg.port_prop_in}")
 
-        self.action[0] = msg.stb_prop_in
-        self.action[1] = msg.port_prop_in
+        self.get_logger().info(f"got thruster msg: {msg.stb_prop_in, msg.port_prop_in}")
+
+        pwm_zero = 1500
+        pwm_high = 1900
+        pwm_low = 1100
+
+        def pwm_to_action(pwm):
+            if pwm >= pwm_zero:
+                percentage = (pwm - pwm_zero) / (pwm_high - pwm_zero)
+            else: 
+                percentage = (pwm - pwm_zero) / (pwm_zero - pwm_low)
+            
+            return max(min(percentage, 1.0), -1.0)
+
+        self.action[0] = pwm_to_action(msg.stb_prop_in)
+        self.action[1] = pwm_to_action(msg.port_prop_in)
+
+        # self.action[0] = msg.stb_prop_in
+        # self.action[1] = msg.port_prop_in
 
 
 def main(args=None):
