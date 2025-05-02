@@ -1,4 +1,4 @@
-from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, BaseEnvironment
+from gym_asv_ros2.gym_asv.environment import BaseEnvironment
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
