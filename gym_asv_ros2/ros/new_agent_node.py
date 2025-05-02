@@ -73,16 +73,16 @@ class AgentNode(Node):
         # Action
         self.action_pub = self.create_publisher(
             ThrusterInputs,
-            "/microampere/control/thurst",
+            "/microampere/control/thrust",
             1
         )
 
         # send waypoint to simulator
-        self.waypoint_pub = self.create_publisher(
-            Float32MultiArray,
-            "/gym_asv_ros2/internal/waypoint",
-            1
-        )
+        # self.waypoint_pub = self.create_publisher(
+        #     Float32MultiArray,
+        #     "/gym_asv_ros2/internal/waypoint",
+        #     1
+        # )
 
         self.agent = PPO.load(agent_file)
 

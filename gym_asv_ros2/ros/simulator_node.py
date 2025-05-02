@@ -20,7 +20,7 @@ class SimulationNode(Node):
         self.action_sub = self.create_subscription(
 
             ThrusterInputs,
-            "/microampere/control/thurst",
+            "/microampere/control/thrust",
             self.thruster_input_callback,
             1
         )
