@@ -2,9 +2,15 @@
 
 source /opt/ros/humble/setup.bash
 
-rm -r install/ build/
+build (){
+    echo "building"
+    rm -r install/ build/
+    colcon build 
+}
 
-colcon build 
+if [[ "$1" == "build" ]]; then
+    build
+fi
 
 source install/setup.bash
 
