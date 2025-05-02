@@ -102,6 +102,8 @@ class AgentNode(Node):
 
         self.reached_goal_timer_iteration = 0
 
+        self.get_logger().info("Node Initialized")
+
 
     def waypoint_callback(self, msg: Float32MultiArray):
 
@@ -110,6 +112,7 @@ class AgentNode(Node):
 
         # Set the waypoint
         way_point = msg.data
+        self.get_logger().info(f"Waypoint is: {way_point}")
         self.real_env.goal.position = np.array([way_point[0], way_point[1]])
         self.real_env.goal.angle = way_point[2]
 
