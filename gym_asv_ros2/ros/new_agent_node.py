@@ -198,7 +198,7 @@ class AgentNode(Node):
             #     port_prop_in=float(0.0)
             # )
             # self.action_pub.publish(action_msg)
-            # self.get_logger().info("Did not recive sensor data, setting 0 thrust")
+            self.get_logger().info("Did not recive sensor data, setting 0 thrust")
             return
 
         dummy_action = np.array([0.0, 0.0])
