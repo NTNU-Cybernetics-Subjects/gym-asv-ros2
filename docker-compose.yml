@@ -25,9 +25,11 @@ services:
       # - /home/${USER}:/home/${USER}
       - ./:/root/src/gym_asv_ros2
       - ../microamp_interfaces:/root/src/microamp_interfaces
+      - ./run_gym_asv_controller:/root/run_gym_asv_controller
     # working_dir: /home/${USER}
     networks:
       - ros2_net
+    # network_mode: host
     user: "${UID}:${GID}"
     # runtime: nvidia
     # deploy:
