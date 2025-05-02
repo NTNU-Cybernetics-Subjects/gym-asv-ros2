@@ -97,7 +97,7 @@ class AgentNode(Node):
         self.last_vessel_state_recived = self.get_clock().now() - self.wait_for_data_duration
 
         # The frequency the controller is running on
-        self.run_fequency = 0.1 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
+        self.run_fequency = 0.2 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
         self.create_timer(self.run_fequency, self.run)
 
         self.reached_goal_timer_iteration = 0
