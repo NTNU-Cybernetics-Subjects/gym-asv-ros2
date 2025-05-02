@@ -11,8 +11,8 @@ services:
       # - DISPLAY=${DISPLAY}
       - XAUTHORITY=${XAUTH}
       - ROS_DOMAIN_ID=0
-      - FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE}
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      # - FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE}
+      # - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       # Uncomment if needed:
       # - ROS_MASTER_URI=http://${MASTER_IP}:11311
       # - ROS_IP=${LOCAL_IP}
@@ -33,6 +33,7 @@ services:
       - ros2_net
     # network_mode: host
     user: "${UID}:${GID}"
+    # network_mode: host
     # runtime: nvidia
     # deploy:
     #   resources:
