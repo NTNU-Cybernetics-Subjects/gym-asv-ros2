@@ -30,8 +30,7 @@ setup(
         "console_scripts": [
             "manual_control_node = gym_asv_ros2.ros.manual_control_node:main",
             "simulator_node = gym_asv_ros2.ros.simulator_node:main",
-            # "agent_node = gym_asv_ros2.ros.agent_node:main"
-            "agent_node = gym_asv_ros2.ros.new_agent_node:main"
+            "agent_node = gym_asv_ros2.ros.agent_node:main"
         ],
     },
 )
