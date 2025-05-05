@@ -52,8 +52,6 @@ class AgentNode(Node):
             self.state_sub_callback,
             1
         )
-        # self.real_vessel_state = np.zeros((6,))
-        # self.navtigation_features = np.zeros((5,))
 
         # State machine controll
         self.waypoint_sub = self.create_subscription(
@@ -62,12 +60,7 @@ class AgentNode(Node):
             self.waypoint_callback,
             1
         )
-        # self.run_state_sub = self.create_subscription(
-        #     Bool,
-        #     "gym_asv_ros2/run_state",
-        #     self.run_state_callback,
-        #     1
-        # )
+
         self.run_state = False # Set the state of the controller
 
         # Action
@@ -77,12 +70,6 @@ class AgentNode(Node):
             1
         )
 
-        # send waypoint to simulator
-        # self.waypoint_pub = self.create_publisher(
-        #     Float32MultiArray,
-        #     "/gym_asv_ros2/internal/waypoint",
-        #     1
-        # )
 
         self.agent = PPO.load(agent_file)
 
