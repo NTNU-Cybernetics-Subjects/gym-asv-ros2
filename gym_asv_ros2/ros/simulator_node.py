@@ -3,8 +3,8 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
-from microamp_interfaces.msg import ThrusterInputs, BoatState
-from std_msgs.msg import Float32MultiArray
+from microamp_interfaces.msg import ThrusterInputs, BoatState, Waypoint
+# from std_msgs.msg import Float32MultiArray
 
 import numpy as np
 from gym_asv_ros2.gym_asv.entities import CircularEntity
@@ -38,7 +38,7 @@ class SimulationNode(Node):
         # )
 
         self.waypoint_sub = self.create_subscription(
-            Float32MultiArray,
+            Waypoint,
             "/gym_asv_ros2/internal/waypoint",
             self.waypoint_callback,
             1
@@ -61,12 +61,13 @@ class SimulationNode(Node):
     def __del__(self):
         self.env.close()
 
-    def waypoint_callback(self, msg: Float32MultiArray):
-        waypoint = msg.data
+    def waypoint_callback(self, msg: Waypoint):
+
+        # waypoint = msg.data
 
         # self.env.reset()
-        self.env.goal.position = np.array([waypoint[0], waypoint[1]])
-        self.env.goal.angle = waypoint[2]
+        self.env.goal.position = np.array([msg.xn, msg.yn])
+        self.env.goal.angle = msg.psi_n
  
 
     def render_callback(self):
