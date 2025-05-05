@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 from std_msgs.msg import Float32MultiArray, Bool
-from microamp_interfaces.msg import ThrusterInputs, BoatState
+from microamp_interfaces.msg import ThrusterInputs, BoatState, RlLogMessage, Waypoint
 
 import numpy as np
 from stable_baselines3 import PPO
@@ -55,7 +55,7 @@ class AgentNode(Node):
 
         # State machine controll
         self.waypoint_sub = self.create_subscription(
-            Float32MultiArray,
+            Waypoint,
             "/gym_asv_ros2/internal/waypoint",
             self.waypoint_callback,
             1
@@ -70,6 +70,12 @@ class AgentNode(Node):
             1
         )
 
+        # Log topic
+        self.log_pub = self.create_publisher(
+            RlLogMessage,
+            "/gym_asv_ros2/internal/log_data",
+            1
+        )
 
         self.agent = PPO.load(agent_file)
 
@@ -81,7 +87,7 @@ class AgentNode(Node):
         # self.env_initialzied = False
 
         self.wait_for_data_duration = Duration(seconds=1)
-        self.last_vessel_state_recived = self.get_clock().now() - self.wait_for_data_duration
+        self.last_time_state_recived = self.get_clock().now() - self.wait_for_data_duration
 
         # The frequency the controller is running on
         self.run_fequency = 0.2 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
@@ -89,46 +95,51 @@ class AgentNode(Node):
 
         self.reached_goal_timer_iteration = 0
 
+        # Log data
+        self.last_vessel_state_msg = BoatState()
+        self.last_waypoint_msg = Waypoint()
+        self.last_thrust_msg = ThrusterInputs()
+
         self.get_logger().info("Node Initialized")
 
 
-    def waypoint_callback(self, msg: Float32MultiArray):
+    def waypoint_callback(self, msg: Waypoint):
 
+        # Save the waypoint
+        self.last_waypoint_msg = msg
+
+        # Set run_state to true
         self.run_state = True
         self.get_logger().info(f"Run status is set to: {self.run_state}")
 
         # Set the waypoint
-        way_point = msg.data
-        self.get_logger().info(f"Waypoint is: {way_point}")
-        self.real_env.goal.position = np.array([way_point[0], way_point[1]])
-        self.real_env.goal.angle = way_point[2]
+        self.get_logger().info(f"Recived waypoint. x: {msg.xn}, y: {msg.yn}, psi: {msg.psi_n}")
+        self.real_env.goal.position = np.array([msg.xn, msg.yn])
+        self.real_env.goal.angle = msg.psi_n
 
+        # Init state for the agent
         self.real_env.vessel._init_state = self.real_env.vessel._state
         self.real_env.reset()
 
-        
-        # TODO: Initialize the waypoint and consider intialize env/vessel state on run_state=true
-        # self.real_env.vessel._init_state = self.real_vessel_state
-        # self.real_env.vessel._init_state = self.real_env.vessel._state
 
-        # self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
-        # self.waypoint_pub.publish(
-        #     Float32MultiArray(
-        #         data=[
-        #             self.real_env.goal.position[0],
-        #             self.real_env.goal.position[1],
-        #             self.real_env.goal.angle
-        #         ]
-        #     )
-        # )
+    def publish_log_data(self, last_reward, reached_goal):
 
+        log_msg = RlLogMessage()
+        log_msg.boat_state = self.last_vessel_state_msg
+        log_msg.thrust_input = self.last_thrust_msg
+        log_msg.reward = last_reward
+        log_msg.target_waypoint = self.last_waypoint_msg
+        log_msg.operational_state = self.run_state
+        log_msg.reached_goal = reached_goal
+
+        self.log_pub.publish(log_msg)
 
 
     def state_sub_callback(self, msg: BoatState):
         """Make the navigation part of the observation when we can state update."""
 
         # Update the vessel model to the new states
-        vessel_state = np.array([ # TODO: check if we need ot do any transformations
+        vessel_state = np.array([
             msg.x,
             msg.y ,
             msg.yaw,
@@ -137,11 +148,15 @@ class AgentNode(Node):
             msg.yaw_r,
         ])
 
-        # TODO: Any nessesary tranformations here
         # self.get_logger().info(f"vessel state: {vessel_state}")
+        # Update state in env
         self.real_env.vessel.set_state(vessel_state)
 
-        self.last_vessel_state_recived = self.get_clock().now()
+        self.last_time_state_recived = self.get_clock().now()
+
+        # Save state msg
+        self.last_vessel_state_msg = msg
+
 
 
     def pub_action_to_pwm(self, action_stb: float, action_port: float):
@@ -167,6 +182,8 @@ class AgentNode(Node):
             port_prop_in = float(pwm_port),
             pwm = True
         )
+        # Save thrust msg
+        self.last_thrust_msg = thruster_msg
         self.action_pub.publish(thruster_msg)
 
         
@@ -178,18 +195,14 @@ class AgentNode(Node):
         
         # Check if have not gotten state data
         time_now = self.get_clock().now()
-        if time_now > self.last_vessel_state_recived + self.wait_for_data_duration:
+        if time_now > self.last_time_state_recived + self.wait_for_data_duration:
             self.pub_action_to_pwm(0.0, 0.0)
-            # action_msg = ThrusterInputs(
-            #     stb_prop_in=float(0.0),
-            #     port_prop_in=float(0.0)
-            # )
-            # self.action_pub.publish(action_msg)
             self.get_logger().info("Did not recive sensor data, setting 0 thrust")
             return
 
         dummy_action = np.array([0.0, 0.0])
         observation, reward, done, truncated, info = self.real_env.step(dummy_action)
+
         # print(reward)
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
@@ -221,11 +234,9 @@ class AgentNode(Node):
             action[0],
             action[1]
         )
-        # action_msg = ThrusterInputs(
-        #     stb_prop_in=float(action[0]),
-        #     port_prop_in=float(action[1])
-        # )
-        # self.action_pub.publish(action_msg)
+
+        # Publish log data
+        self.publish_log_data(reward, done)
 
 
 def main(args=None):
