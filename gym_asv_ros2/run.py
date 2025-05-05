@@ -12,7 +12,7 @@ import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
 
-from gym_asv_ros2.gym_asv.environment import RandomGoalEnv, RandomGoalRandomObstEnv, RandomGoalWithDockObstacle
+from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, RandomGoalRandomObstEnv, RandomGoalWithDockObstacle
 from gym_asv_ros2.gym_asv.environment import play as play_env
 
 # from stable_baselines3.common.callbacks import BaseCallback
@@ -30,7 +30,8 @@ install_rich_traceback()
 def make_env_subproc(render_mode=None):
     def _init():
         # env = RandomGoalRandomObstEnv(render_mode)
-        env = RandomGoalWithDockObstacle(render_mode)
+        # env = RandomGoalWithDockObstacle(render_mode)
+        env = RandomGoalBlindEnv(render_mode)
         return env
 
     return _init
@@ -203,8 +204,9 @@ if __name__ == "__main__":
     #     file_storage = FileStorage(args.workdir, args.logid)
     # else:
     # file_storage = FileStorage("raw_lidar_training/lidar_raw_256_128_64", args.logid)
-    file_storage = FileStorage("raw_lidar_training", args.logid)
+    # file_storage = FileStorage("raw_lidar_training", args.logid)
     # file_storage = FileStorage("training", args.logid)
+    file_storage = FileStorage("blind_agent_training", args.logid)
 
 
     if args.mode == "enjoy":

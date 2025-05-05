@@ -52,6 +52,7 @@ class BaseEnvironment(gym.Env):
         self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
+        # self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
         # self.lidar_sensor = SectorLidar(30)
         # self.n_perception_features = self.lidar_sensor.n_sectors
@@ -391,7 +392,7 @@ class BaseEnvironment(gym.Env):
         self._info["episode_nr"] = self.episode
 
 
-class RandomGoalEnv(BaseEnvironment):
+class RandomGoalBlindEnv(BaseEnvironment):
     """Environment with random position."""
 
     def __init__(self, render_mode=None, *args, **kwargs) -> None:
@@ -419,7 +420,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=n_perception_features, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level3
+        self.init_level = self.level0
         self.init_level(False)
 
     def _setup(self):
@@ -607,6 +608,7 @@ def play(env):
     listner = KeyboardListner()
     listner.start_listner()
     clock = Timer()
+    env.vessel._state[0] = 10
 
     t = 0
     done = False
