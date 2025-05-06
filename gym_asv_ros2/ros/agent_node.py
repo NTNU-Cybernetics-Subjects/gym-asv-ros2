@@ -4,9 +4,14 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 from std_msgs.msg import Float32MultiArray, Bool
 from microamp_interfaces.msg import ThrusterInputs, BoatState, RlLogMessage, Waypoint
+from sensor_msgs.msg import LaserScan
+
+# from gym_asv_ros2.gym_asv.entities import BaseEntity
+
 
 import numpy as np
 from stable_baselines3 import PPO
+# from typing import Sequence
 
 # from threading import Lock
 from gym_asv_ros2.gym_asv.vessel import Vessel
@@ -24,25 +29,61 @@ class RosVessel(Vessel):
     def set_state(self, state):
         self._state = state
 
+class RosLidar():
+
+    def __init__(self, max_range: float, num_rays: float):
+        self.max_range = max_range
+        self.num_rays = num_rays
+
+
+    def sense(self, *args):
+        pass
+
+
+        
 
 class AgentNode(Node):
 
     def __init__(self) -> None:
         super().__init__("gym_asv_agent_node")
     
+        self.logger = self.get_logger()
+
+        ## Get paramters
+
+        # Agent file
         self.declare_parameter("agent", "")
         agent_file = self.get_parameter("agent").get_parameter_value().string_value
-        self.get_logger().info(f"agent file is: {agent_file}")
+
+        # N perception
+        self.declare_parameter("n_perception", 0)
+        n_perception_features = self.get_parameter("n_perception").get_parameter_value().integer_value
+
+        self.declare_parameter("simulated_lidar", True)
+        simulated_lidar = self.get_parameter("simulated_lidar").get_parameter_value().bool_value
+
+        # Dump all paramters
+        self.logger.info(f"""
+        Loading paramters:
+            agent_file: {agent_file}
+            n_perception: {n_perception_features}
+            simulated_lidar: {simulated_lidar} \
+        """
+        )
+
+        # Check if we have an valid agent file
         if not agent_file:
             raise FileExistsError(f"{agent_file} does not exists.")
 
+        ## Subscription/ publishers
+
         # Lidar
-        # self.lidar_sub = self.create_subscription(
-        #     Float32MultiArray,
-        #     "/ouster/scan",
-        #     self.lidar_sub_callback,
-        #     10
-        # )
+        self.lidar_sub = self.create_subscription(
+            LaserScan,
+            "/ouster/scan",
+            self.lidar_sub_callback,
+            1
+        )
         # self.real_lidar_messurments = np.ones((41,))
 
         # Vessel
@@ -61,8 +102,6 @@ class AgentNode(Node):
             1
         )
 
-        self.run_state = False # Set the state of the controller
-
         # Action
         self.action_pub = self.create_publisher(
             ThrusterInputs,
@@ -77,31 +116,35 @@ class AgentNode(Node):
             1
         )
 
+        ## Variables
+
+        self.run_state = False # Set the state of the controller
+
+        # Rl related
         self.agent = PPO.load(agent_file)
-
-        # Set up the env and override the vessel model
-        # self.real_env = RandomGoalBlindEnv(render_mode=None)
-        self.real_env = BaseEnvironment(render_mode=None, n_perception_features=0)
+        self.real_env = BaseEnvironment(render_mode=None, n_perception_features=n_perception_features)
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
-        # self.real_env.reset()
-        # self.env_initialzied = False
 
-        self.wait_for_data_duration = Duration(seconds=1)
-        self.last_time_state_recived = self.get_clock().now() - self.wait_for_data_duration
-
-        # The frequency the controller is running on
-        self.run_fequency = 0.2 # NOTE: Should mabye run on 0.2 in real time, due to trained on that step size
-        self.create_timer(self.run_fequency, self.run)
-
-        self.reached_goal_timer_iteration = 0
+        # self.reached_goal_timer_iteration = 0
 
         # Log data
         self.last_vessel_state_msg = BoatState()
         self.last_waypoint_msg = Waypoint()
         self.last_thrust_msg = ThrusterInputs()
 
+        # timers
+        self.wait_for_data_duration = Duration(seconds=1)
+        self.last_time_state_recived = self.get_clock().now() - self.wait_for_data_duration
+
+        # The frequency the controller is running on.  NOTE: trained on 0.2
+        self.run_fequency = 0.2
+        self.create_timer(self.run_fequency, self.run)
+
         self.get_logger().info("Node Initialized")
 
+
+    def lidar_sub_callback(self, msg: LaserScan):
+        pass
 
     def waypoint_callback(self, msg: Waypoint):
 
