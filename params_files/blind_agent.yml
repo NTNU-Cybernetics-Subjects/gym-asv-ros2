@@ -1,0 +1,8 @@
+
+gym_asv_agent_node:
+  ros__parameters:
+    agent: "./src/gym_asv_ros2/deploy_agent/agent.zip"
+    n_perception: 0
+    simulated_lidar: True
+
+
