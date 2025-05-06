@@ -1,10 +1,12 @@
 from gym_asv_ros2.gym_asv.environment import BaseEnvironment
+from gym_asv_ros2.ros import simulator_node
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 from std_msgs.msg import Float32MultiArray, Bool
 from microamp_interfaces.msg import ThrusterInputs, BoatState, RlLogMessage, Waypoint
 from sensor_msgs.msg import LaserScan
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 # from gym_asv_ros2.gym_asv.entities import BaseEntity
 
@@ -23,10 +25,13 @@ class RosVessel(Vessel):
 
 
     def step(self, action: np.ndarray, h: float):
+        """Overlads the step function to do nothing. We are not simulating the
+        vessel when in real mode"""
         pass
 
         
     def set_state(self, msg: BoatState):
+        """Update the vessel to the recived state."""
 
         vessel_state = np.array([
             msg.x,
@@ -41,14 +46,39 @@ class RosVessel(Vessel):
 
 class RosLidar():
 
-    def __init__(self, max_range: float, num_rays: float):
+    def __init__(self, max_range: float, num_rays: int):
         self.max_range = max_range
         self.num_rays = num_rays
 
-        self.last_lidar_scan = None
+        # This is the last proceesed lidar scan
+        self.last_lidar_scan = np.full((num_rays,), max_range)
+
+
+    def process_lidar_scan(self, msg: LaserScan):
+
+        min_angle = msg.angle_min
+        max_angle = msg.angle_max
+        angle_increment = msg.angle_increment
+
+        raw_scan = np.array(msg.ranges)
+        n_scans = len(raw_scan)
+        raw_angles = min_angle + np.arange(n_scans) * angle_increment
+
+        reduced_edges = np.linspace(min_angle, raw_angles[-1], n_scans+1)
+
+        reduced_scan = np.full(self.num_rays, self.max_range, dtype=np.float32)
+        for b in range(self.num_rays):
+            mask = (raw_angles >= reduced_edges[b]) & (raw_angles < reduced_edges[b+1])
+            if mask.any():
+                reduced_scan[b] = raw_scan[mask].min()
+
+        self.last_lidar_scan = reduced_scan
+
+        # return raw_scan
 
     def sense(self, *args):
-        pass
+        """Returns the last lidar scan that is proceesed."""
+        return self.last_lidar_scan
         
 
 
@@ -87,12 +117,15 @@ class AgentNode(Node):
 
         ## Subscription/ publishers
 
+        qos_profile = QoSProfile(depth=10)
+        qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
+
         # Lidar
         self.lidar_sub = self.create_subscription(
             LaserScan,
             "/ouster/scan",
             self.lidar_sub_callback,
-            1
+            qos_profile
         )
         # self.real_lidar_messurments = np.ones((41,))
 
@@ -156,7 +189,17 @@ class AgentNode(Node):
 
 
     def lidar_sub_callback(self, msg: LaserScan):
-        pass
+
+        if not isinstance(self.real_env.lidar_sensor, RosLidar):
+            return
+
+        self.real_env.lidar_sensor.process_lidar_scan(msg)
+        scan = self.real_env.lidar_sensor.sense()
+
+        self.logger.info(f"{scan}\nlen: {len(scan)}")
+        
+        # scan = self.real_env.lidar_sensor.process_lidar_scan(msg)
+        # self.logger.info(f"Got {len(scan)} scan, \n{scan}")
 
     def waypoint_callback(self, msg: Waypoint):
 
