@@ -26,8 +26,18 @@ class RosVessel(Vessel):
         pass
 
         
-    def set_state(self, state):
-        self._state = state
+    def set_state(self, msg: BoatState):
+
+        vessel_state = np.array([
+            msg.x,
+            msg.y ,
+            msg.yaw,
+            msg.surge,
+            msg.sway,
+            msg.yaw_r,
+        ])
+
+        self._state = vessel_state
 
 class RosLidar():
 
@@ -35,12 +45,12 @@ class RosLidar():
         self.max_range = max_range
         self.num_rays = num_rays
 
+        self.last_lidar_scan = None
 
     def sense(self, *args):
         pass
-
-
         
+
 
 class AgentNode(Node):
 
@@ -94,7 +104,7 @@ class AgentNode(Node):
             1
         )
 
-        # State machine controll
+        # Get waypoint
         self.waypoint_sub = self.create_subscription(
             Waypoint,
             "/gym_asv_ros2/internal/waypoint",
@@ -124,6 +134,8 @@ class AgentNode(Node):
         self.agent = PPO.load(agent_file)
         self.real_env = BaseEnvironment(render_mode=None, n_perception_features=n_perception_features)
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
+        if not simulated_lidar:
+            self.real_env.lidar_sensor = RosLidar(30.0, 41)
 
         # self.reached_goal_timer_iteration = 0
 
@@ -140,7 +152,7 @@ class AgentNode(Node):
         self.run_fequency = 0.2
         self.create_timer(self.run_fequency, self.run)
 
-        self.get_logger().info("Node Initialized")
+        self.logger.info("Node Initialized")
 
 
     def lidar_sub_callback(self, msg: LaserScan):
@@ -151,12 +163,12 @@ class AgentNode(Node):
         # Save the waypoint
         self.last_waypoint_msg = msg
 
-        # Set run_state to true
+        # Set run_state to true, TODO: set the run_state form the start_autonmous topic
         self.run_state = True
-        self.get_logger().info(f"Run status is set to: {self.run_state}")
+        self.logger.info(f"Run status is set to: {self.run_state}")
 
         # Set the waypoint
-        self.get_logger().info(f"Recived waypoint. x: {msg.xn}, y: {msg.yn}, psi: {msg.psi_n}")
+        self.logger.info(f"Recived waypoint. x: {msg.xn}, y: {msg.yn}, psi: {msg.psi_n}")
         self.real_env.goal.position = np.array([msg.xn, msg.yn])
         self.real_env.goal.angle = msg.psi_n
 
@@ -181,25 +193,13 @@ class AgentNode(Node):
     def state_sub_callback(self, msg: BoatState):
         """Make the navigation part of the observation when we can state update."""
 
-        # Update the vessel model to the new states
-        vessel_state = np.array([
-            msg.x,
-            msg.y ,
-            msg.yaw,
-            msg.surge,
-            msg.sway,
-            msg.yaw_r,
-        ])
-
-        # self.get_logger().info(f"vessel state: {vessel_state}")
-        # Update state in env
-        self.real_env.vessel.set_state(vessel_state)
+        # Update vessel state from msg
+        self.real_env.vessel.set_state(msg)
 
         self.last_time_state_recived = self.get_clock().now()
 
         # Save state msg
         self.last_vessel_state_msg = msg
-
 
 
     def pub_action_to_pwm(self, action_stb: float, action_port: float):
