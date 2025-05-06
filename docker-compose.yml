@@ -42,6 +42,7 @@ services:
     #         - capabilities: [gpu]
     stdin_open: true
     tty: true
+    command: ["./run_gym_asv_controller", "build"]
     restart: unless-stopped
 
 networks:
