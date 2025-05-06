@@ -1,4 +1,4 @@
-from gym_asv_ros2.gym_asv.environment import BaseEnvironment
+from gym_asv_ros2.gym_asv.environment import BaseEnvironment, RandomGoalWithDockObstacle
 from gym_asv_ros2.ros import simulator_node
 import rclpy
 from rclpy.node import Node
@@ -50,36 +50,35 @@ class RosLidar():
         self.max_range = max_range
         self.num_rays = num_rays
 
+
         # This is the last proceesed lidar scan
         self.last_lidar_scan = np.full((num_rays,), max_range)
 
 
-    def process_lidar_scan(self, msg: LaserScan):
+    def index_interpolate_scan(self, msg: LaserScan):
 
-        min_angle = msg.angle_min
-        max_angle = msg.angle_max
-        angle_increment = msg.angle_increment
+        # min_angle = msg.angle_min
+        # max_angle = msg.angle_max
+        # angle_increment = msg.angle_increment
 
         raw_scan = np.array(msg.ranges)
         n_scans = len(raw_scan)
-        raw_angles = min_angle + np.arange(n_scans) * angle_increment
+        # shited_raw_scan = np.roll(raw_scan, -int(n_scans/2))
 
-        reduced_edges = np.linspace(min_angle, raw_angles[-1], n_scans+1)
+        # reversed_scan = raw_scan[::-1]
 
-        reduced_scan = np.full(self.num_rays, self.max_range, dtype=np.float32)
-        for b in range(self.num_rays):
-            mask = (raw_angles >= reduced_edges[b]) & (raw_angles < reduced_edges[b+1])
-            if mask.any():
-                reduced_scan[b] = raw_scan[mask].min()
+        orig_idx = np.arange(n_scans)
+        new_idx = np.linspace(0, n_scans -1, self.num_rays)
+
+        reduced_scan = np.interp(new_idx, orig_idx, raw_scan)
+        reduced_scan = np.clip(reduced_scan, 0.0, 30.0)
 
         self.last_lidar_scan = reduced_scan
 
-        # return raw_scan
 
     def sense(self, *args):
         """Returns the last lidar scan that is proceesed."""
         return self.last_lidar_scan
-        
 
 
 class AgentNode(Node):
@@ -166,6 +165,8 @@ class AgentNode(Node):
         # Rl related
         self.agent = PPO.load(agent_file)
         self.real_env = BaseEnvironment(render_mode=None, n_perception_features=n_perception_features)
+        # self.real_env = RandomGoalWithDockObstacle(render_mode=None, n_perception_features=n_perception_features)
+        # self.real_env.init_level = self.real_env.level3
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
         if not simulated_lidar:
             self.real_env.lidar_sensor = RosLidar(30.0, 41)
@@ -193,10 +194,10 @@ class AgentNode(Node):
         if not isinstance(self.real_env.lidar_sensor, RosLidar):
             return
 
-        self.real_env.lidar_sensor.process_lidar_scan(msg)
+        self.real_env.lidar_sensor.index_interpolate_scan(msg)
         scan = self.real_env.lidar_sensor.sense()
 
-        self.logger.info(f"{scan}\nlen: {len(scan)}")
+        # self.logger.info(f"{scan}\nlen: {len(scan)}")
         
         # scan = self.real_env.lidar_sensor.process_lidar_scan(msg)
         # self.logger.info(f"Got {len(scan)} scan, \n{scan}")
@@ -219,6 +220,15 @@ class AgentNode(Node):
         self.real_env.vessel._init_state = self.real_env.vessel._state
         self.real_env.reset()
 
+        # self.sim_object_hack_setup()
+
+    def sim_object_hack_setup(self):
+
+        self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
+        self.helper_env.level3(False)
+
+        self.real_env.obstacles = self.helper_env.obstacles
+        self.logger.info(f"Simulating obstacles at: {[obst.position for obst in self.real_env.obstacles]}")
 
     def publish_log_data(self, last_reward, reached_goal):
 
@@ -293,10 +303,16 @@ class AgentNode(Node):
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
-        self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
+        # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
         if done:
-            self.get_logger().info(f"Reached goal at, {self.real_env.goal.position}")
+            if info["reached_goal"]:
+                self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
+
+            elif info["collision"]:
+                self.logger.info("Collision detected")
+                self.run_state = False
+
             # self.run_state = False
             # if self.reached_goal_timer_iteration >= 50:
                 # self.run_state = False
