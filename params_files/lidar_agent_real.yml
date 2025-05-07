@@ -5,3 +5,4 @@ gym_asv_agent_node:
     n_perception: 41
     simulated_lidar: False
     env_sim_level: 0
+    thrust_cap: 0.2

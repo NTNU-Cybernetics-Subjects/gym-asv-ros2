@@ -107,13 +107,19 @@ class AgentNode(Node):
         self.declare_parameter("env_sim_level", 0)
         self.env_sim_level = self.get_parameter("env_sim_level").get_parameter_value().integer_value
 
+        # Prosentage of max trhust to use
+        self.declare_parameter("thrust_cap", 0.2)
+        self.thrust_cap = self.get_parameter("thrust_cap").get_parameter_value().double_value
+
+
         # Dump all paramters
         self.logger.info(f"""
         Loading paramters:
             agent_file: {agent_file}
             n_perception: {n_perception_features}
             simulated_lidar: {simulated_lidar}
-            env_sim_level: {self.env_sim_level}\
+            env_sim_level: {self.env_sim_level}
+            thrust_cap: {self.thrust_cap}\
         """
         )
 
@@ -283,11 +289,17 @@ class AgentNode(Node):
 
         pwm_zero = 1500
 
+        pwm_max = 1900
+        pwm_min = 1100
+
+        pwm_high = 400 * self.thrust_cap + pwm_zero
+        pwm_low = pwm_zero - 400 * self.thrust_cap
+
         # pwm_high = 1700
         # pwm_high = 1300
 
-        pwm_high = 1580
-        pwm_low = 1420
+        # pwm_high = 1580
+        # pwm_low = 1420
         
         def action_to_pwm(per):
 
