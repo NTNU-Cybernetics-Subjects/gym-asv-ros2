@@ -224,11 +224,14 @@ class AgentNode(Node):
         self.real_env.vessel._init_state = self.real_env.vessel._state
         self.real_env.reset()
 
-        # self.sim_object_hack_setup()
+        self.sim_object_hack_setup()
 
     def sim_object_hack_setup(self):
 
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
+        self.helper_env.obstacles.clear()
+
+        self.logger.info(f"Using sim_lvl for virtual obstacles: {self.env_sim_level}")
 
         if self.env_sim_level == 0:
             return
@@ -319,8 +322,8 @@ class AgentNode(Node):
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
-        reached_goal = info["reached_goal"]
-        collision = info["collision"]
+        reached_goal = bool(info["reached_goal"])
+        collision = bool(info["collision"])
 
         # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
