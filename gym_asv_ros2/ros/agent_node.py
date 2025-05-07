@@ -230,7 +230,7 @@ class AgentNode(Node):
         self.real_env.obstacles = self.helper_env.obstacles
         self.logger.info(f"Simulating obstacles at: {[obst.position for obst in self.real_env.obstacles]}")
 
-    def publish_log_data(self, last_reward, reached_goal):
+    def publish_log_data(self, last_reward, reached_goal, collision):
 
         log_msg = RlLogMessage()
         log_msg.boat_state = self.last_vessel_state_msg
@@ -239,6 +239,7 @@ class AgentNode(Node):
         log_msg.target_waypoint = self.last_waypoint_msg
         log_msg.operational_state = self.run_state
         log_msg.reached_goal = reached_goal
+        log_msg.collision = collision
 
         self.log_pub.publish(log_msg)
 
@@ -303,13 +304,16 @@ class AgentNode(Node):
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
+        reached_goal = info["reached_goal"]
+        collision = info["collision"]
+
         # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
         if done:
-            if info["reached_goal"]:
+            if reached_goal:
                 self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
 
-            elif info["collision"]:
+            elif collision:
                 self.logger.info("Collision detected")
                 self.run_state = False
 
@@ -338,7 +342,7 @@ class AgentNode(Node):
         )
 
         # Publish log data
-        self.publish_log_data(reward, done)
+        self.publish_log_data(reward, reached_goal, collision)
 
 
 def main(args=None):
