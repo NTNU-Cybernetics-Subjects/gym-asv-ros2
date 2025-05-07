@@ -4,3 +4,4 @@ gym_asv_agent_node:
     agent: "./src/gym_asv_ros2/deploy_agent/lidar_agent_2x128.zip"
     n_perception: 41
     simulated_lidar: False
+    env_sim_level: 0

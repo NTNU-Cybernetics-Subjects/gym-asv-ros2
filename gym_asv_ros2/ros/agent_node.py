@@ -101,12 +101,16 @@ class AgentNode(Node):
         self.declare_parameter("simulated_lidar", True)
         simulated_lidar = self.get_parameter("simulated_lidar").get_parameter_value().bool_value
 
+        self.declare_parameter("env_sim_level", 0)
+        self.env_sim_level = self.get_parameter("env_sim_level").get_parameter_value().integer_value
+
         # Dump all paramters
         self.logger.info(f"""
         Loading paramters:
             agent_file: {agent_file}
             n_perception: {n_perception_features}
-            simulated_lidar: {simulated_lidar} \
+            simulated_lidar: {simulated_lidar}
+            env_sim_level: {self.env_sim_level}\
         """
         )
 
@@ -225,7 +229,18 @@ class AgentNode(Node):
     def sim_object_hack_setup(self):
 
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
-        self.helper_env.level3(False)
+
+        if self.env_sim_level == 0:
+            return
+
+        if self.env_sim_level == 2:
+            self.helper_env.level2(False)
+
+        elif self.env_sim_level == 3:
+            self.helper_env.level3(False)
+
+        else:
+            self.helper_env.level1(False)
 
         self.real_env.obstacles = self.helper_env.obstacles
         self.logger.info(f"Simulating obstacles at: {[obst.position for obst in self.real_env.obstacles]}")
