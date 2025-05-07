@@ -280,9 +280,14 @@ class AgentNode(Node):
 
     def pub_action_to_pwm(self, action_stb: float, action_port: float):
 
+
         pwm_zero = 1500
-        pwm_high = 1700
-        pwm_low = 1300
+
+        # pwm_high = 1700
+        # pwm_high = 1300
+
+        pwm_high = 1580
+        pwm_low = 1420
         
         def action_to_pwm(per):
 
