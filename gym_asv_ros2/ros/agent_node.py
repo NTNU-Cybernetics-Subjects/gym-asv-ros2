@@ -8,6 +8,8 @@ from microamp_interfaces.msg import ThrusterInputs, BoatState, RlLogMessage, Way
 from sensor_msgs.msg import LaserScan
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
+from rclpy.logging import LoggingSeverity
+
 # from gym_asv_ros2.gym_asv.entities import BaseEntity
 
 
@@ -87,6 +89,7 @@ class AgentNode(Node):
         super().__init__("gym_asv_agent_node")
     
         self.logger = self.get_logger()
+        self.logger.set_level(LoggingSeverity.DEBUG)
 
         ## Get paramters
 
