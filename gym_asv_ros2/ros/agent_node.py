@@ -173,6 +173,7 @@ class AgentNode(Node):
         # self.real_env.init_level = self.real_env.level3
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
         if not simulated_lidar:
+            self.logger.info("Setting simulated lidar")
             self.real_env.lidar_sensor = RosLidar(30.0, 41)
 
         # self.reached_goal_timer_iteration = 0
@@ -201,7 +202,7 @@ class AgentNode(Node):
         self.real_env.lidar_sensor.index_interpolate_scan(msg)
         scan = self.real_env.lidar_sensor.sense()
 
-        # self.logger.info(f"{scan}\nlen: {len(scan)}")
+        self.logger.debug(f"{scan}\nlen: {len(scan)}")
         
         # scan = self.real_env.lidar_sensor.process_lidar_scan(msg)
         # self.logger.info(f"Got {len(scan)} scan, \n{scan}")
