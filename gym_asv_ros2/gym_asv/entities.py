@@ -12,8 +12,6 @@ if not os.environ.get("DISPLAY"):
     pyglet.options["shadow_window"] = False
 
 
-
-
 class BaseEntity:
 
     def __init__(self) -> None:
@@ -93,6 +91,12 @@ class CircularEntity(BaseEntity):
     def update(self):
         pass
 
+class MovingCircularEntity(CircularEntity):
+
+    def update(self):
+        self.position[0] -= 0.1
+        self.position[1] -= 0.1
+        self.init_boundary()
 
 class PolygonEntity(BaseEntity):
 
