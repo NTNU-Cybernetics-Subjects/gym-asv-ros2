@@ -246,7 +246,7 @@ class AgentNode(Node):
             self.helper_env.level1(False)
 
         self.real_env.obstacles = self.helper_env.obstacles
-        self.logger.info(f"Simulating obstacles at: {[obst.position for obst in self.real_env.obstacles]}")
+        self.logger.info(f"Simulating obstacles at (pos, vertecies): {[[ obst.position, obst.boundary ] for obst in self.real_env.obstacles]}")
 
     def publish_log_data(self, last_reward, reached_goal, collision):
 
