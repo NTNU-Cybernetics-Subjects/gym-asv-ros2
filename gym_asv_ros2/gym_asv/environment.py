@@ -10,7 +10,7 @@ import gym_asv_ros2.gym_asv.utils.geom_utils as geom
 # import pyglet
 from gymnasium.utils import seeding
 
-from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, PolygonEntity, RectangularEntity
+from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, MovingCircularEntity, PolygonEntity, RectangularEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
@@ -28,10 +28,7 @@ class BaseEnvironment(gym.Env):
     metadata = {"render_modes": [None, "human", "rgb_array"], "render_fps": 30}
 
     def __init__(self, render_mode=None, n_perception_features: int = 0, *args, **kwargs) -> None:
-
-        # Set render mode
-        if render_mode not in self.metadata["render_modes"]:
-            raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
+# Set render mode if render_mode not in self.metadata["render_modes"]: raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
         self.render_mode = render_mode
 
         # Metadata
@@ -54,6 +51,7 @@ class BaseEnvironment(gym.Env):
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
         # self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
+        self.last_lidar_readings = np.zeros(self.n_perception_features,)
         # self.lidar_sensor = SectorLidar(30)
         # self.n_perception_features = self.lidar_sensor.n_sectors
 
@@ -172,6 +170,8 @@ class BaseEnvironment(gym.Env):
 
         # Update lidar visualization
         elif isinstance(self.lidar_sensor, LidarSimulator):
+
+            # self.lidar_sensor._ray_lines[3].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
             for ray_line in self.lidar_sensor._ray_lines:
                 ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
@@ -235,6 +235,7 @@ class BaseEnvironment(gym.Env):
         goal_heading_error = geom.princip(self.goal.angle - vessel_heading)
 
         lidar_readings = self.lidar_sensor.sense(vessel_position, vessel_heading, self.obstacles)
+        self.last_lidar_readings = lidar_readings
 
         # Check collision
         collision = np.any(lidar_readings < self.vessel.width/2)
@@ -420,7 +421,9 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0)
         super().__init__(render_mode, n_perception_features=n_perception_features, obstacles=None, *args, **kwargs)
 
-        self.init_level = self.level0
+        # self.goal.position = np.array([0, -10])
+        # self.goal.angle = -np.pi/4
+        self.init_level = self.level3
         self.init_level(False)
 
     def _setup(self):
@@ -536,6 +539,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
  
         obst_pos = self.translate_coord(np.array([0,0]), angle, random_distance)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
+        # self.add_obstacle(MovingCircularEntity(obst_pos, random_radius))
 
 
 
