@@ -1,6 +1,12 @@
 
 # Gym asv ros2
 
+## Requirements
+
+- Python v3.10.12
+- ROS2 Humble 
+
+
 ## Install
 
 ```bash
