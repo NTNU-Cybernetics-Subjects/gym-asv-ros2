@@ -196,12 +196,16 @@ class Vessel:
             [self.action_to_thrust(action[0]), self.action_to_thrust(action[1])]
         )
 
-        if np.linalg.norm(self._input) > 0:
-            solution = solve_ivp(self._state_dot, [0, h], self._state, args=(self._input,), method="BDF") # TODO: check this
-            self._state = solution.y[:,-1]
-            self._state[2] = geom.princip(self._state[2])
-        else:
-            self._state[3:5] = np.full_like(self._state[3:5], 0.0)
+        # if np.linalg.norm(self._input) > 0:
+        #     solution = solve_ivp(self._state_dot, [0, h], self._state, args=(self._input,), method="BDF") # TODO: check this
+        #     self._state = solution.y[:,-1]
+        #     self._state[2] = geom.princip(self._state[2])
+        # else:
+        #     self._state[3:5] = np.full_like(self._state[3:5], 0.0)
+        
+        solution = solve_ivp(self._state_dot, [0, h], self._state, args=(self._input,), method="BDF") # TODO: check this
+        self._state = solution.y[:,-1]
+        self._state[2] = geom.princip(self._state[2])
 
 
         self._step_counter += 1
