@@ -171,7 +171,7 @@ class BaseEnvironment(gym.Env):
         # Update lidar visualization
         elif isinstance(self.lidar_sensor, LidarSimulator):
 
-            # self.lidar_sensor._ray_lines[3].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+            # self.lidar_sensor._ray_lines[1].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
             for ray_line in self.lidar_sensor._ray_lines:
                 ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
@@ -246,6 +246,7 @@ class BaseEnvironment(gym.Env):
         min_goal_heading = np.deg2rad(15)
 
         if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading:
+            # self.reached_goal_count += 1
             self.reached_goal = True
 
         nav = np.array([
@@ -258,6 +259,7 @@ class BaseEnvironment(gym.Env):
         ])
 
         per = lidar_readings/self.lidar_sensor.max_range
+        # Subtract the vessels size to the lidar scans, such that we get 0 when actually crashing
         per = ( lidar_readings - self.vessel.width/2 ) / ( self.lidar_sensor.max_range - self.vessel.width/2 )
         per = np.clip(per, 0, 1)
 
@@ -265,41 +267,83 @@ class BaseEnvironment(gym.Env):
         obs = np.concatenate([nav, per])
         return obs
 
+    # def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
+    #
+    #     if self.collision: # TODO: Consider adding collision that scales with speed
+    #         reward = -500.0
+    #         return reward
+    #
+    #     if self.reached_goal:
+    #         reward = 1000.0
+    #         return reward
+    #
+    #     current_obs = current_observation.flatten()
+    #     last_obs = last_observation.flatten()
+    #
+    #     # distance term
+    #     # current_distance_error = np.linalg.norm(current_obs[3:5])
+    #     # last_distance_error = np.linalg.norm( last_obs[3:5] )
+    #     current_distance_error = current_obs[3]
+    #     last_distance_error = last_obs[3]
+    #     distance_reward = ( last_distance_error - current_distance_error ) * alpha
+    #
+    #     # alginment term
+    #     current_goal_alignment_error = abs(current_obs[4])
+    #     last_goal_alignment_error = abs(last_obs[4])
+    #
+    #     decay_factor = 0.7
+    #     closure_exponential_factor = np.exp(-current_distance_error * decay_factor)
+    #     alignment_weight = closure_exponential_factor * beta
+    #
+    #     alignment_reward = ( last_goal_alignment_error - current_goal_alignment_error) * alignment_weight
+    #
+    #     reward = distance_reward + alignment_reward
+    #     # print(f"[env.reward] distance_reward = {distance_reward}, align_reward {align_reward}")
+    #
+    #     return float(reward)
+
     def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
 
+        current_obs = current_observation.flatten()
+        last_obs = last_observation.flatten()
+
+        current_speed = np.linalg.norm(current_observation[0:2])
         if self.collision: # TODO: Consider adding collision that scales with speed
-            reward = -500.0
+            # reward = -500.0
+            reward = ( -10 * current_speed ) - 400
             return reward
 
         if self.reached_goal:
             reward = 1000.0
             return reward
 
-        current_obs = current_observation.flatten()
-        last_obs = last_observation.flatten()
-
-        # distance term
-        # current_distance_error = np.linalg.norm(current_obs[3:5])
-        # last_distance_error = np.linalg.norm( last_obs[3:5] )
         current_distance_error = current_obs[3]
         last_distance_error = last_obs[3]
         distance_reward = ( last_distance_error - current_distance_error ) * alpha
 
+        # distance term
+        # current_distance_error = np.linalg.norm(current_obs[3:5])
+        # last_distance_error = np.linalg.norm( last_obs[3:5] )
+
         # alginment term
         current_goal_alignment_error = abs(current_obs[4])
         last_goal_alignment_error = abs(last_obs[4])
-        
+
         decay_factor = 0.7
         closure_exponential_factor = np.exp(-current_distance_error * decay_factor)
         alignment_weight = closure_exponential_factor * beta
-        
+
         alignment_reward = ( last_goal_alignment_error - current_goal_alignment_error) * alignment_weight
+
+        # Penalize negative surge
+        backing_scale = 0.5
+        if current_observation[0] <= 0:
+            backing_penality = current_observation[0] * backing_scale
 
         reward = distance_reward + alignment_reward
         # print(f"[env.reward] distance_reward = {distance_reward}, align_reward {align_reward}")
 
         return float(reward)
-
 
     def _check_termination(self) -> bool:
         """Check if if episode is done due to succsess/fail"""
@@ -423,7 +467,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level3
+        self.init_level = self.level1
         self.init_level(False)
 
     def _setup(self):
@@ -473,17 +517,37 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         y = position[1] + lenght * np.sin(angle)
         return np.array([x,y])
 
+    def polar_to_cartesian(self, dist, angle):
+
+        x = dist * np.cos(angle)
+        y = dist * np.sin(angle)
+        return np.array([x,y])
+
     def level0(self, update_goal=True):
-        """Makes a randomized goal position"""
+        """Random polar coordinates"""
+
         if update_goal:
-            angle_offset = np.pi/2
-            self.goal.position[0] = np.random.randint(-20,20)
-            self.goal.position[1] = np.random.randint(10,20)
-            # random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-            random_angle = np.random.uniform(-np.pi/4, np.pi/4) # -45°, 45°
-            # random_angle = np.pi/4
-            # self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
-            self.goal.angle = angle_offset + random_angle
+            goal_dist = np.random.uniform(10,25)
+            goal_angle = np.random.uniform(-np.pi, np.pi)
+
+            random_goal_offset = np.random.uniform(-np.pi/6, np.pi/6)
+
+            self.goal.position = self.polar_to_cartesian(goal_dist, goal_angle)
+            self.goal.angle = goal_angle + random_goal_offset
+
+
+
+    # def level0(self, update_goal=True):
+    #     """Makes a randomized goal position"""
+    #     if update_goal:
+    #         angle_offset = np.pi/2
+    #         self.goal.position[0] = np.random.randint(-20,20)
+    #         self.goal.position[1] = np.random.randint(10,20) * np.random.choice([1, -1])
+    #         # random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
+    #         random_angle = np.random.uniform(-np.pi/4, np.pi/4) * np.random.choice([1, np.pi])# -45°, 45° 
+    #         # random_angle = np.pi/4
+    #         # self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
+    #         self.goal.angle = angle_offset + random_angle
 
 
     def level1(self, update_goal=True):
@@ -625,7 +689,6 @@ def play(env):
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
 
-
         print_info = {k: info[k] for k in info if k != "observation"}
         if t % 10 == 0:
             print("\033c")
@@ -651,6 +714,6 @@ def play(env):
 if __name__ == "__main__":
     # env = RandomGoalEnv(render_mode="human")
     # env = RandomGoalRandomObstEnv(render_mode="human")
-    env = RandomGoalWithDockObstacle(render_mode="human", n_perception_features=5)
+    env = RandomGoalWithDockObstacle(render_mode="human", n_perception_features=0)
 
     play(env)
