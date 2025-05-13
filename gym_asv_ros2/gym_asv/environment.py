@@ -49,7 +49,7 @@ class BaseEnvironment(gym.Env):
         self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        # self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
+        self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
         self.last_lidar_readings = np.zeros(self.n_perception_features,)
         # self.lidar_sensor = SectorLidar(30)
@@ -467,7 +467,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level1
+        self.init_level = self.level3
         self.init_level(False)
 
     def _setup(self):
@@ -482,6 +482,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         # print(f"Episode was {reached_goal}, dock configuration, p {self.goal.position} angle: {self.goal.angle}")
         msg = f"""Episode was {reached_goal}, new dock configuration: p {self.goal.position}, angle {self.goal.angle}
         obs: p {[obs.position for obs in self.obstacles]}
+        vessel_position: {self.vessel.position}
         """
         print(msg)
 
@@ -513,8 +514,8 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
 
     def translate_coord(self, position: np.ndarray, angle: float, lenght:float):
-        x = position[0] + lenght * np.cos(angle)
-        y = position[1] + lenght * np.sin(angle)
+        x = position[0] + (lenght * np.cos(angle))
+        y = position[1] + (lenght * np.sin(angle))
         return np.array([x,y])
 
     def polar_to_cartesian(self, dist, angle):
@@ -530,7 +531,10 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
             goal_dist = np.random.uniform(10,25)
             goal_angle = np.random.uniform(-np.pi, np.pi)
 
-            random_goal_offset = np.random.uniform(-np.pi/6, np.pi/6)
+            # random_goal_offset = np.random.uniform(-np.pi/6, np.pi/6)
+            random_goal_offset = 0
+
+            print(f"Setting up position at dist: {goal_dist}, angle: {np.rad2deg(goal_angle)}")
 
             self.goal.position = self.polar_to_cartesian(goal_dist, goal_angle)
             self.goal.angle = goal_angle + random_goal_offset
@@ -555,7 +559,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         self.level0(update_goal=update_goal)
 
-        random_dock_dist = self.vessel.length + np.random.uniform(2,3)
+        random_dock_dist = self.vessel.length + np.random.uniform(1.5,3)
 
         dock_obst = RectangularEntity(
             self.translate_coord(self.goal.position, self.goal.angle, random_dock_dist),
@@ -585,26 +589,49 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
             CircularEntity(pos2, r2)
         )
 
+
     def level3(self, update_goal=True):
-        """Extends level 1, by adding a obstacle in direct line of sight to the desired position."""
 
-        self.level1(update_goal=update_goal)
-        
-        los_angle = np.arctan2(self.goal.position[1], self.goal.position[0])
-        random_angle_offset = np.random.uniform(0, np.pi/12) * np.random.choice([-1, 1])
-        angle = los_angle + random_angle_offset
+        self.level1(update_goal)
 
-        random_radius = np.random.uniform(0.7, 2)
+        los_anlge = np.arctan2(self.goal.position[1], self.goal.position[0])
+        random_angle_offset = np.random.uniform(-np.pi/16, np.pi/16)
+        # random_angle_offset = 0
 
-        dist_min = 4 + random_radius
-        dist_max = np.linalg.norm(self.goal.position) - 3 - random_radius
+        angle = los_anlge + random_angle_offset
 
-        random_distance = np.random.uniform(dist_min, dist_max)
- 
-        obst_pos = self.translate_coord(np.array([0,0]), angle, random_distance)
+        random_radius = np.random.uniform(1, 3)
+
+        dist_min = 5 + random_radius
+        dist_max = np.linalg.norm(self.goal.position) - 4 - random_radius
+
+        random_distance = float(np.random.uniform(dist_min, dist_max))
+
+        obst_pos = self.translate_coord(np.array([self.vessel.position[0],self.vessel.position[1]]), angle, random_distance)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
-        # self.add_obstacle(MovingCircularEntity(obst_pos, random_radius))
+        print(f"los_angle: {np.rad2deg(los_anlge)}, angle_with_random: {np.rad2deg(angle)}, dist: {random_distance}")
+        # print(f"translating to {obst_pos}")
 
+    # def level3(self, update_goal=True):
+    #     """Extends level 1, by adding a obstacle in direct line of sight to the desired position."""
+    #
+    #     self.level1(update_goal=update_goal)
+    #
+    #     los_angle = np.arctan2(self.goal.position[1], self.goal.position[0])
+    #     random_angle_offset = np.random.uniform(0, np.pi/12) * np.random.choice([-1, 1])
+    #     angle = los_angle + random_angle_offset
+    #
+    #     random_radius = np.random.uniform(0.7, 2)
+    #
+    #     dist_min = 4 + random_radius
+    #     dist_max = np.linalg.norm(self.goal.position) - 3 - random_radius
+    #
+    #     random_distance = np.random.uniform(dist_min, dist_max)
+    #
+    #     obst_pos = self.translate_coord(np.array([0,0]), angle, random_distance)
+    #     self.add_obstacle(CircularEntity(obst_pos, random_radius))
+    #     # self.add_obstacle(MovingCircularEntity(obst_pos, random_radius))
+    #
 
 
 class RandomGoalRandomObstEnv(BaseEnvironment):
@@ -676,7 +703,7 @@ def play(env):
     listner = KeyboardListner()
     listner.start_listner()
     clock = Timer()
-    env.vessel._state[0] = 10
+    # env.vessel._state[0] = 10
 
     t = 0
     done = False
@@ -689,11 +716,13 @@ def play(env):
         action = listner.action
         observation, reward, done, truncated, info = env.step(action)
 
-        print_info = {k: info[k] for k in info if k != "observation"}
-        if t % 10 == 0:
-            print("\033c")
-            record_nested_dict(print, info)
-            print(f"reward {reward}")
+        # print(f"Vessel pos: {env.vessel.position}, goal_pos: {env.goal.position}")
+
+        # print_info = {k: info[k] for k in info if k != "observation"}
+        # if t % 10 == 0:
+        #     print("\033c")
+        #     record_nested_dict(print, info)
+        #     print(f"reward {reward}")
         # print(info)
         # print(reward)
 
@@ -714,6 +743,7 @@ def play(env):
 if __name__ == "__main__":
     # env = RandomGoalEnv(render_mode="human")
     # env = RandomGoalRandomObstEnv(render_mode="human")
-    env = RandomGoalWithDockObstacle(render_mode="human", n_perception_features=0)
+    env = RandomGoalWithDockObstacle(render_mode="human", n_perception_features=64)
+    # env = BaseEnvironment(render_mode="human", n_perception_features=128)
 
     play(env)
