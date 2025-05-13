@@ -49,7 +49,7 @@ class BaseEnvironment(gym.Env):
         self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
         self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
+        # self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
         self.last_lidar_readings = np.zeros(self.n_perception_features,)
         # self.lidar_sensor = SectorLidar(30)
@@ -310,7 +310,7 @@ class BaseEnvironment(gym.Env):
         current_speed = np.linalg.norm(current_observation[0:2])
         if self.collision: # TODO: Consider adding collision that scales with speed
             # reward = -500.0
-            reward = ( -10 * current_speed ) - 400
+            reward = ( -100 * current_speed ) - 400
             return reward
 
         if self.reached_goal:
@@ -336,11 +336,12 @@ class BaseEnvironment(gym.Env):
         alignment_reward = ( last_goal_alignment_error - current_goal_alignment_error) * alignment_weight
 
         # Penalize negative surge
-        backing_scale = 0.5
-        if current_observation[0] <= 0:
+        backing_scale = 1.5
+        backing_penality = 0
+        if current_observation[0] <= 0: # this will always give negative number
             backing_penality = current_observation[0] * backing_scale
 
-        reward = distance_reward + alignment_reward
+        reward = distance_reward + alignment_reward + backing_penality
         # print(f"[env.reward] distance_reward = {distance_reward}, align_reward {align_reward}")
 
         return float(reward)
@@ -724,11 +725,11 @@ def play(env):
         #     record_nested_dict(print, info)
         #     print(f"reward {reward}")
         # print(info)
-        # print(reward)
+        print(reward)
 
         # print(env.cumulative_reward)
         if done:
-            # print(env.cumulative_reward)
+            print(env.cumulative_reward)
             env.reset()
         env.render()
         elapsed_time = clock.toc()
