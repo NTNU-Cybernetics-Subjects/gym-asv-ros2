@@ -153,6 +153,20 @@ class AgentNode(Node):
         qos_profile = QoSProfile(depth=10)
         qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
 
+        # Start stop signal
+        self.operation_state_sub = self.create_subscription(
+            Bool,
+            "/start_operation",
+            self.operation_state_sub_callback,
+            1
+        )
+        # To publish STOP signal when algorithm is finished
+        self.operation_state_pub = self.create_publisher(
+            Bool,
+            "/start_operation",
+            1
+        )
+
         # Lidar
         self.lidar_sub = self.create_subscription(
             LaserScan,
@@ -222,7 +236,7 @@ class AgentNode(Node):
         self.run_fequency = 0.2
         self.create_timer(self.run_fequency, self.run)
 
-        self.logger.info("Node Initialized")
+        self.logger.info(f"Node Initialized. Operation state is: {self.run_state}")
 
 
     def lidar_sub_callback(self, msg: LaserScan):
@@ -238,6 +252,29 @@ class AgentNode(Node):
         
         # scan = self.real_env.lidar_sensor.process_lidar_scan(msg)
         # self.logger.info(f"Got {len(scan)} scan, \n{scan}")
+    
+    def operation_state_sub_callback(self, msg: Bool):
+
+        self.run_state = msg.data
+        self.logger.info(f"Recived operation state: {self.run_state}.")
+
+        # Set init state for the agent as current state.
+        if self.run_state:
+            self.real_env.vessel._init_state = self.real_env.vessel._state
+            self.real_env.reset()
+            self.logger.info("Resting Environment")
+        
+
+    def _stop_opertaion(self):
+
+        self.run_state = False
+
+        msg = Bool()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.data = self.run_state
+
+        self.logger.debug(f"Sending {self.run_state} signal on /start_operation")
+        self.operation_state_pub.publish(msg)
 
     def waypoint_callback(self, msg: Waypoint):
 
@@ -245,21 +282,25 @@ class AgentNode(Node):
         self.last_waypoint_msg = msg
 
         # Set run_state to true, TODO: set the run_state form the start_autonmous topic
-        self.run_state = True
-        self.logger.info(f"Run status is set to: {self.run_state}")
+        # self.run_state = True
+        # self.logger.info(f"Run status is set to: {self.run_state}")
 
         # Set the waypoint
         self.logger.info(f"Recived waypoint. x: {msg.xn}, y: {msg.yn}, psi: {msg.psi_n}")
         self.real_env.goal.position = np.array([msg.xn, msg.yn])
         self.real_env.goal.angle = msg.psi_n
 
-        # Init state for the agent
+        # Set init state for the agent as current state.
         self.real_env.vessel._init_state = self.real_env.vessel._state
         self.real_env.reset()
 
-        self.sim_object_hack_setup()
+
+        if self.simulated_lidar:
+            self.sim_object_hack_setup()
 
     def sim_object_hack_setup(self):
+
+        # FIXME: Should make Structed setup for the simulated testing
 
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
         self.helper_env.obstacles.clear()
@@ -292,8 +333,9 @@ class AgentNode(Node):
         log_msg.reached_goal = reached_goal
         log_msg.collision = collision
 
-        self.log_pub.publish(log_msg)
+        log_msg.header.stamp = self.get_clock().now().to_msg()
 
+        self.log_pub.publish(log_msg)
 
     def state_sub_callback(self, msg: BoatState):
         """Make the navigation part of the observation when we can state update."""
@@ -340,7 +382,8 @@ class AgentNode(Node):
             stb_prop_in = float(pwm_stb),
             port_prop_in = float(pwm_port),
             pwm = True
-        )
+        ) 
+        thruster_msg.header.stamp = self.get_clock().now().to_msg()
         # Save thrust msg
         self.last_thrust_msg = thruster_msg
         self.action_pub.publish(thruster_msg)
@@ -348,11 +391,11 @@ class AgentNode(Node):
         
     def run(self):
 
-        if self.run_state == 0:
+        if not self.run_state:
             self.pub_action_to_pwm(0.0, 0.0)
             return
         
-        # Check if have not gotten state data
+        # Check if have not gotten state data, TODO: add check for lidar data aswell
         time_now = self.get_clock().now()
         if time_now > self.last_time_state_recived + self.wait_for_data_duration:
             self.pub_action_to_pwm(0.0, 0.0)
@@ -366,18 +409,22 @@ class AgentNode(Node):
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
 
+        # TODO: check if these values makes sense
         reached_goal = bool(info["reached_goal"])
         collision = bool(info["collision"])
 
+        print(info)
+
         # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
+        # TODO: Figure out what to do when reaching the goal.
         if done:
             if reached_goal:
                 self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
 
             elif collision:
                 self.logger.info("Collision detected")
-                self.run_state = False
+                self._stop_opertaion()
 
             # self.run_state = False
             # if self.reached_goal_timer_iteration >= 50:
