@@ -1,0 +1,20 @@
+#!/usr/bin/bash
+
+# 1) Check number of args
+if [ "$#" -ne 3 ]; then
+  echo "Error: Expected 3 arguments, got $#."
+  echo "Usage: $0 <x> <y> <psi>"
+  exit 1
+fi
+
+# 2) Assign variables
+X=$1
+Y=$2
+PSI=$3
+WAYPOINT_TOPIC="/gym_asv_ros2/internal/waypoint"
+WAYPOINT_MSG_TYPE="microamp_interfaces/msg/Waypoint"
+
+# 3) Publish once (-1) on /waypoint
+#    Replace `your_pkg/msg/Waypoint` with your actual msg type
+ros2 topic pub $WAYPOINT_TOPIC  $WAYPOINT_MSG_TYPE \
+  "{ xn: $X, yn: $Y, psi_n: $PSI }" -1
