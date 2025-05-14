@@ -468,7 +468,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level3
+        self.init_level = self.level2_n_3
         self.init_level(False)
 
     def _setup(self):
@@ -594,6 +594,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
     def level3(self, update_goal=True):
 
         self.level1(update_goal)
+        # self.level0(update_goal)
 
         los_anlge = np.arctan2(self.goal.position[1], self.goal.position[0])
         random_angle_offset = np.random.uniform(-np.pi/16, np.pi/16)
@@ -601,17 +602,25 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         angle = los_anlge + random_angle_offset
 
-        random_radius = np.random.uniform(1, 3)
+        random_radius = np.random.uniform(1, 2)
+        diamter = random_radius*2
 
-        dist_min = 5 + random_radius
-        dist_max = np.linalg.norm(self.goal.position) - 4 - random_radius
+        dist_min = 3 + diamter
+        dist_max = np.linalg.norm(self.goal.position) - 3 - diamter
 
         random_distance = float(np.random.uniform(dist_min, dist_max))
 
         obst_pos = self.translate_coord(np.array([self.vessel.position[0],self.vessel.position[1]]), angle, random_distance)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
+        # self.add_obstacle(RectangularEntity(obst_pos, diamter, diamter, self.goal.angle))
         print(f"los_angle: {np.rad2deg(los_anlge)}, angle_with_random: {np.rad2deg(angle)}, dist: {random_distance}")
         # print(f"translating to {obst_pos}")
+
+    def level2_n_3(self, update_goal=True):
+
+        self.level2(update_goal)
+        self.level3(False)
+
 
     # def level3(self, update_goal=True):
     #     """Extends level 1, by adding a obstacle in direct line of sight to the desired position."""
