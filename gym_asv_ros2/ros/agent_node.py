@@ -77,6 +77,27 @@ class RosLidar():
 
         self.last_lidar_scan = reduced_scan
 
+    def min_pooling_scan(self, msg: LaserScan):
+
+        raw_scan = np.array(msg.ranges)
+        n_scans = len(raw_scan)
+
+        # print(f"min: {msg.angle_min}, min: {msg.angle_max}, angle_increment: {msg.angle_increment}, min+da*scans: {msg.angle_min + (msg.angle_increment * (n_scans-1))}")
+
+        sector_size = n_scans/self.num_rays
+        if n_scans % self.num_rays != 0:
+            raise(ValueError(f" number of scans / num_rays {n_scans}/{self.num_rays} = {sector_size} is not an integer. Cannot use min pooling"))
+
+        sector_size = int(sector_size)
+        roll_idx = int( sector_size/2 )
+        shited_raw_scan = np.roll(raw_scan, -roll_idx)
+
+        chuncked_scan = shited_raw_scan.reshape(self.num_rays, sector_size)
+        mins = chuncked_scan.min(axis=1)
+
+        processed_scan = np.clip(mins, 0.0, 30.0)
+
+        self.last_lidar_scan = processed_scan
 
     def sense(self, *args):
         """Returns the last lidar scan that is proceesed."""
@@ -183,7 +204,8 @@ class AgentNode(Node):
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
         if not simulated_lidar:
             self.logger.info("Setting simulated lidar")
-            self.real_env.lidar_sensor = RosLidar(30.0, 41)
+            self.real_env.lidar_sensor = RosLidar(30.0, n_perception_features)
+        self.simulated_lidar = simulated_lidar
 
         # self.reached_goal_timer_iteration = 0
 
@@ -208,7 +230,8 @@ class AgentNode(Node):
         if not isinstance(self.real_env.lidar_sensor, RosLidar):
             return
 
-        self.real_env.lidar_sensor.index_interpolate_scan(msg)
+        # self.real_env.lidar_sensor.index_interpolate_scan(msg)
+        self.real_env.lidar_sensor.min_pooling_scan(msg)
         scan = self.real_env.lidar_sensor.sense()
 
         self.logger.debug(f"{scan}\nlen: {len(scan)}")
