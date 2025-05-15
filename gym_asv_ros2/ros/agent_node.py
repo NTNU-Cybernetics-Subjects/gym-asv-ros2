@@ -3,12 +3,14 @@ from gym_asv_ros2.ros import simulator_node
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
-from std_msgs.msg import Float32MultiArray, Bool
+from std_msgs.msg import Float32MultiArray, Bool, String
 from microamp_interfaces.msg import ThrusterInputs, BoatState, RlLogMessage, Waypoint
 from sensor_msgs.msg import LaserScan
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 from rclpy.logging import LoggingSeverity
+
+import pickle, base64
 
 # from gym_asv_ros2.gym_asv.entities import BaseEntity
 
@@ -206,6 +208,12 @@ class AgentNode(Node):
             1
         )
 
+        self.obstacle_pub = self.create_publisher(
+            String,
+            "gym_asv_ros2/internal/virtual_obstacles",
+            1,
+        )
+
         ## Variables
 
         self.run_state = False # Set the state of the controller
@@ -213,12 +221,12 @@ class AgentNode(Node):
         # Rl related
         self.agent = PPO.load(agent_file)
         self.real_env = BaseEnvironment(render_mode=None, n_perception_features=n_perception_features)
-        # self.real_env = RandomGoalWithDockObstacle(render_mode=None, n_perception_features=n_perception_features)
-        # self.real_env.init_level = self.real_env.level3
+
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
+
         if not simulated_lidar:
-            self.logger.info("Setting simulated lidar")
-            self.real_env.lidar_sensor = RosLidar(30.0, n_perception_features)
+            self.logger.info(f"Using real lidar with range {30.0} and {n_perception_features} rays")
+            self.real_env.lidar_sensor = RosLidar(30.0, n_perception_features) # Overrides the simulated Lidar
         self.simulated_lidar = simulated_lidar
 
         # self.reached_goal_timer_iteration = 0
@@ -270,7 +278,6 @@ class AgentNode(Node):
         self.run_state = False
 
         msg = Bool()
-        msg.header.stamp = self.get_clock().now().to_msg()
         msg.data = self.run_state
 
         self.logger.debug(f"Sending {self.run_state} signal on /start_operation")
@@ -294,18 +301,19 @@ class AgentNode(Node):
         self.real_env.vessel._init_state = self.real_env.vessel._state
         self.real_env.reset()
 
-
-        if self.simulated_lidar:
-            self.sim_object_hack_setup()
+        # TODO: set up simulated obstacles here
+        self.sim_object_hack_setup()
 
     def sim_object_hack_setup(self):
 
-        # FIXME: Should make Structed setup for the simulated testing
 
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
         self.helper_env.obstacles.clear()
 
         self.logger.info(f"Using sim_lvl for virtual obstacles: {self.env_sim_level}")
+
+        # set goal in helper_env to get correct obstacle positions
+        self.helper_env.goal = self.real_env.goal
 
         if self.env_sim_level == 0:
             return
@@ -320,7 +328,17 @@ class AgentNode(Node):
             self.helper_env.level1(False)
 
         self.real_env.obstacles = self.helper_env.obstacles
-        self.logger.info(f"Simulating obstacles at (pos, vertecies): {[[ obst.position, obst.boundary ] for obst in self.real_env.obstacles]}")
+
+        # Publish the obstacle information
+
+        pickled_obst_list = [base64.b64encode(pickle.dumps(obst)).decode("ascii") for obst in self.real_env.obstacles]
+        obst_string = "||".join(pickled_obst_list)
+
+        obst_string_msg = String()
+        obst_string_msg.data = obst_string
+        self.obstacle_pub.publish(obst_string_msg)
+        self.logger.debug(f"Using virtual obstacles: {obst_string}")
+        # # self.logger.info(f"Simulating obstacles at (pos, vertecies): {[[ obst.position, obst.boundary ] for obst in self.real_env.obstacles]}")
 
     def publish_log_data(self, last_reward, reached_goal, collision):
 
@@ -421,6 +439,7 @@ class AgentNode(Node):
         if done:
             if reached_goal:
                 self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
+                self._stop_opertaion()
 
             elif collision:
                 self.logger.info("Collision detected")
