@@ -83,6 +83,12 @@ class RosLidar():
 
         raw_scan = np.array(msg.ranges)
         n_scans = len(raw_scan)
+        
+        # print(f"range min: {msg.range_min}, range max: {msg.range_max}")
+
+        # Set zero readings to NaN
+        raw_scan[raw_scan <= msg.range_min] = np.nan
+        raw_scan[raw_scan >= msg.range_max] = np.nan
 
         # print(f"min: {msg.angle_min}, min: {msg.angle_max}, angle_increment: {msg.angle_increment}, min+da*scans: {msg.angle_min + (msg.angle_increment * (n_scans-1))}")
 
@@ -95,11 +101,18 @@ class RosLidar():
         shited_raw_scan = np.roll(raw_scan, -roll_idx)
 
         chuncked_scan = shited_raw_scan.reshape(self.num_rays, sector_size)
-        mins = chuncked_scan.min(axis=1)
+        processed_scan = np.nanmin(chuncked_scan, axis=1)
+        # processed_scan = np.nanmean(chuncked_scan, axis=1)
 
-        processed_scan = np.clip(mins, 0.0, 30.0)
+        # If there are stil zero readings set them to max range
+        nan_readings_mask = np.isnan(processed_scan)
+        processed_scan[nan_readings_mask] = self.max_range
 
-        self.last_lidar_scan = processed_scan
+        clipped_processed_scan = np.clip(processed_scan, 0.0, 30.0)
+
+        # processed_scan = mins
+
+        self.last_lidar_scan = clipped_processed_scan
 
     def sense(self, *args):
         """Returns the last lidar scan that is proceesed."""
@@ -229,7 +242,7 @@ class AgentNode(Node):
             self.real_env.lidar_sensor = RosLidar(30.0, n_perception_features) # Overrides the simulated Lidar
         self.simulated_lidar = simulated_lidar
 
-        # self.reached_goal_timer_iteration = 0
+        self.reached_goal_timer_iteration = 0
 
         # Log data
         self.last_vessel_state_msg = BoatState()
@@ -326,6 +339,9 @@ class AgentNode(Node):
 
         elif self.env_sim_level == 3:
             self.helper_env.level3(False)
+
+        elif self.env_sim_level == 23:
+            self.helper_env.level2_n_3(False)
 
         else:
             self.helper_env.level1(False)
@@ -446,6 +462,7 @@ class AgentNode(Node):
             if reached_goal:
                 self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
                 self._stop_opertaion()
+                # self.real_env.reset()
 
             elif collision:
                 self.logger.info("Collision detected")
