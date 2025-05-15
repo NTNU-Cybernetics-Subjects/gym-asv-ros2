@@ -613,7 +613,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         obst_pos = self.translate_coord(np.array([self.vessel.position[0],self.vessel.position[1]]), angle, random_distance)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
         # self.add_obstacle(RectangularEntity(obst_pos, diamter, diamter, self.goal.angle))
-        print(f"los_angle: {np.rad2deg(los_anlge)}, angle_with_random: {np.rad2deg(angle)}, dist: {random_distance}")
+        # print(f"los_angle: {np.rad2deg(los_anlge)}, angle_with_random: {np.rad2deg(angle)}, dist: {random_distance}")
         # print(f"translating to {obst_pos}")
 
     def level2_n_3(self, update_goal=True):
