@@ -307,6 +307,12 @@ class AgentNode(Node):
     def sim_object_hack_setup(self):
 
 
+        if self.env_sim_level == 0:
+            return
+        
+        if not self.simulated_lidar:
+            return
+
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
         self.helper_env.obstacles.clear()
 
@@ -314,9 +320,6 @@ class AgentNode(Node):
 
         # set goal in helper_env to get correct obstacle positions
         self.helper_env.goal = self.real_env.goal
-
-        if self.env_sim_level == 0:
-            return
 
         if self.env_sim_level == 2:
             self.helper_env.level2(False)
@@ -427,6 +430,7 @@ class AgentNode(Node):
         # print(reward)
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
+        # action, _states = self.agent.predict(observation, deterministic=False)
 
         # TODO: check if these values makes sense
         reached_goal = bool(info["reached_goal"])
