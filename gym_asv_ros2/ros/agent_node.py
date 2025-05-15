@@ -340,7 +340,7 @@ class AgentNode(Node):
         self.logger.debug(f"Using virtual obstacles: {obst_string}")
         # # self.logger.info(f"Simulating obstacles at (pos, vertecies): {[[ obst.position, obst.boundary ] for obst in self.real_env.obstacles]}")
 
-    def publish_log_data(self, last_reward, reached_goal, collision):
+    def publish_log_data(self, last_reward, reached_goal, collision, observation):
 
         log_msg = RlLogMessage()
         log_msg.boat_state = self.last_vessel_state_msg
@@ -350,6 +350,7 @@ class AgentNode(Node):
         log_msg.operational_state = self.run_state
         log_msg.reached_goal = reached_goal
         log_msg.collision = collision
+        log_msg.observation = observation
 
         log_msg.header.stamp = self.get_clock().now().to_msg()
 
@@ -430,8 +431,9 @@ class AgentNode(Node):
         # TODO: check if these values makes sense
         reached_goal = bool(info["reached_goal"])
         collision = bool(info["collision"])
+        observation = info["observation"].tolist()
 
-        print(info)
+        # print(info)
 
         # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
@@ -470,7 +472,7 @@ class AgentNode(Node):
         )
 
         # Publish log data
-        self.publish_log_data(reward, reached_goal, collision)
+        self.publish_log_data(reward, reached_goal, collision, observation)
 
 
 def main(args=None):
