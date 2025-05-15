@@ -7,14 +7,19 @@ if [ "$#" -ne 3 ]; then
   exit 1
 fi
 
+
 # 2) Assign variables
 X=$1
 Y=$2
 PSI=$3
 WAYPOINT_TOPIC="/gym_asv_ros2/internal/waypoint"
-WAYPOINT_MSG_TYPE="microamp_interfaces/msg/Waypoint"
+WAYPOINT_MSG_TYPE="microamp_interfaces/Waypoint"
 
 # 3) Publish once (-1) on /waypoint
 #    Replace `your_pkg/msg/Waypoint` with your actual msg type
+
+echo "ros2 topic pub $WAYPOINT_TOPIC  $WAYPOINT_MSG_TYPE \
+  \"{ xn: $X, yn: $Y, psi_n: $PSI }\" -1"
+
 ros2 topic pub $WAYPOINT_TOPIC  $WAYPOINT_MSG_TYPE \
   "{ xn: $X, yn: $Y, psi_n: $PSI }" -1
