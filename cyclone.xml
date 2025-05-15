@@ -20,6 +20,7 @@
         <Peer Address="192.168.3.10"/>
         <Peer Address="192.168.2.14"/>
         <Peer Address="192.168.2.13"/>
+        <Peer Address="192.168.2.112"/>
       </Peers>
   </Discovery>
   </Domain>
