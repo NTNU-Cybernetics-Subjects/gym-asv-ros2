@@ -241,11 +241,13 @@ class BaseEnvironment(gym.Env):
         collision = np.any(lidar_readings < self.vessel.width/2)
         self.collision = collision
 
-        # check if we reached goal
         min_goal_dist = self.vessel.width/2
         min_goal_heading = np.deg2rad(15)
+        min_speed = 0.1
 
+        # check if we reached goal
         if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading:
+        # if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading and np.linalg.norm(vessel_velocity) < min_speed:
             # self.reached_goal_count += 1
             self.reached_goal = True
 
@@ -468,7 +470,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level2_n_3
+        self.init_level = self.level1
         self.init_level(False)
 
     def _setup(self):
