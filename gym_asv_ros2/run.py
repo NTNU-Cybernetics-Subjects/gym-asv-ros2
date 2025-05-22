@@ -30,8 +30,8 @@ install_rich_traceback()
 def make_env_subproc(render_mode=None):
     def _init():
         # env = RandomGoalRandomObstEnv(render_mode)
-        # env = RandomGoalWithDockObstacle(render_mode)
-        env = RandomGoalBlindEnv(render_mode)
+        env = RandomGoalWithDockObstacle(render_mode, n_perception_features=64)
+        # env = RandomGoalBlindEnv(render_mode)
         return env
 
     return _init
@@ -134,7 +134,7 @@ def enjoy(agent_file: str, video_folder: str):
                 run = False
                 break
 
-            action, _states = model.predict(obs, deterministic=True)
+            action, _states = model.predict(obs, deterministic=False)
             obs, reward, done, truncated, info = env.step(action)
             # print(info["vessel_state"])
             env.render()
@@ -205,8 +205,9 @@ if __name__ == "__main__":
     # else:
     # file_storage = FileStorage("raw_lidar_training/lidar_raw_256_128_64", args.logid)
     # file_storage = FileStorage("raw_lidar_training", args.logid)
+    file_storage = FileStorage("idun_training", args.logid)
     # file_storage = FileStorage("training", args.logid)
-    file_storage = FileStorage("blind_agent_training", args.logid)
+    # file_storage = FileStorage("blind_agent_training", args.logid)
 
 
     if args.mode == "enjoy":
