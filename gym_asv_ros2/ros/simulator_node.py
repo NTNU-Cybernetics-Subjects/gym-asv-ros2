@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
-from microamp_interfaces.msg import ThrusterInputs, BoatState, Waypoint
+from microamp_interfaces.msg import ThrusterInputs, BoatState, Waypoint, RlLogMessage
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
 
@@ -15,6 +15,9 @@ from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 from gym_asv_ros2.gym_asv.environment import BaseEnvironment, RandomGoalBlindEnv, RandomGoalWithDockObstacle
 
 from rclpy.logging import LoggingSeverity
+
+from gym_asv_ros2.ros.ros_helpers import RosVessel
+# from gym_asv_ros2.ros.agent_node import RosVessel
 
 import pickle, base64
 
@@ -55,6 +58,12 @@ class SimulationNode(Node):
             "/ouster/scan",
             1
         )
+        self.observation_pub = self.create_subscription(
+            RlLogMessage,
+            "/gym_asv_ros2/internal/log_data",
+            self.observation_sub_callback,
+            1
+        )
 
         self.waypoint_sub = self.create_subscription(
             Waypoint,
@@ -74,8 +83,8 @@ class SimulationNode(Node):
         # Initialize env
         # self.env = RandomGoalWithDockObstacle(render_mode="human")
         self.env = BaseEnvironment(render_mode="human", n_perception_features=0) # NOTE: Currently not using lidar in sim
-        self.env.reset()
-        self.env.render()
+        # self.env.reset()
+        # self.env.render()
 
         # Action
         self.action = np.array([0.0, 0.0])
@@ -98,11 +107,24 @@ class SimulationNode(Node):
                 self.vessel_state_callback,
                 1
             )
+            self.env.vessel = RosVessel(np.array([0,0,0,0,0,0]), 1, 1)
         self.logger.info(f"Node Initialized. Simulate vessel: {self.simulate_vessel}")
+
+        self.env.reset()
+        self.env.render()
 
 
     def __del__(self):
         self.env.close()
+
+
+    def observation_sub_callback(self, msg: RlLogMessage):
+
+        observation = msg.observation
+
+
+
+
 
 
     def obstacle_sub_callback(self, msg: String):
@@ -173,18 +195,9 @@ class SimulationNode(Node):
         )
         self.vessel_state_pub.publish(sim_state_msg)
 
-        # lidar_messurments = self.env.last_lidar_readings
-        # lidar_scan_msg = LaserScan()
-        # lidar_scan_msg.angle_min = 0
-        # lidar_scan_msg.angle_max = 2*np.pi
-
-        # Publish lidar
-        # lidar_messurments = self.last_observation.flatten()[6:]
-        # lidar_msg = Float32MultiArray(
-        #     data=lidar_messurments.tolist()
-        # )
-        # self.lidar_pub.publish(lidar_msg)
-
+    def vessel_state_callback(self, msg: BoatState):
+        # Update vessel state from msg
+        self.env.vessel.set_state(msg)
 
     def thruster_input_callback(self, msg: ThrusterInputs):
 
@@ -204,9 +217,6 @@ class SimulationNode(Node):
 
         self.action[0] = pwm_to_action(msg.stb_prop_in)
         self.action[1] = pwm_to_action(msg.port_prop_in)
-
-        # self.action[0] = msg.stb_prop_in
-        # self.action[1] = msg.port_prop_in
 
 
 def main(args=None):
