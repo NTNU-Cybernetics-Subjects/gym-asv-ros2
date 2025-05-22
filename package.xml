@@ -3,7 +3,7 @@
 <package format="3">
   <name>gym_asv_ros2</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>RL controller for the Blueboat </description>
   <maintainer email="hurodor@todo.todo">hurodor</maintainer>
   <license>TODO: License declaration</license>
 

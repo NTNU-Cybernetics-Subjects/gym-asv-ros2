@@ -1,0 +1,50 @@
+services:
+  ros:
+    build:
+      # context: ${ROS_DOCKER_DIR}
+      dockerfile: Dockerfile
+      args:
+        ROS_DOCKER_DISTRO: humble
+    container_name: gym_asv_container
+    hostname: gym_asv
+    environment:
+      # - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTH}
+      - ROS_DOMAIN_ID=0
+      # - FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE}
+      # - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      # Uncomment if needed:
+      # - ROS_MASTER_URI=http://${MASTER_IP}:11311
+      # - ROS_IP=${LOCAL_IP}
+      # - LIBGL_ALWAYS_SOFTWARE=1
+    volumes:
+      # - /etc/group:/etc/group:ro
+      # - /etc/passwd:/etc/passwd:ro
+      # - /etc/shadow:/etc/shadow:ro
+      # - /etc/sudoers.d:/etc/sudoers.d:ro
+      # - ${XSOCK}:${XSOCK}:rw
+      # - ${XAUTH}:${XAUTH}:rw
+      # - /home/${USER}:/home/${USER}
+      - ./:/root/src/gym_asv_ros2
+      - ../microamp_interfaces:/root/src/microamp_interfaces
+      - ./run_gym_asv_controller:/root/run_gym_asv_controller
+    # working_dir: /home/${USER}
+    networks:
+      - ros2_net
+    # network_mode: host
+    user: "${UID}:${GID}"
+    # network_mode: host
+    # runtime: nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    command: ["./run_gym_asv_controller", "build"]
+    restart: unless-stopped
+
+networks:
+  ros2_net:
+    driver: bridge
