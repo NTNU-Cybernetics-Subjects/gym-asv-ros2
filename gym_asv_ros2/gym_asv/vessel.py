@@ -116,7 +116,7 @@ class Vessel:
     @property
     def boundary(self) -> shapely.geometry.Polygon:
         """Vessels shape defined keeping the CO in origo"""
-        # defined as y,x ??
+        # Defined as x, y in ned
         vertices = [
             (-self.length/2, -self.width/2),
             (-self.length/2, self.width/2),
@@ -140,7 +140,7 @@ class Vessel:
         l2 = self._thruster_params.right_arm_dissplacement
 
         # Model matrices TODO: force should be modeleded?
-        tau = np.array([u1 + u2, 0, -l1 * u1 - l2 * u2]).T
+        tau = np.array([u1 + u2, 0, - (l1 * u1) - (l2 * u2)]).T
 
         p = self._model_params
         M = np.array(
