@@ -48,8 +48,8 @@ class BaseEnvironment(gym.Env):
         # self.n_navigation_features = 6
         self.n_perception_features = n_perception_features # if 0, only navigation features is used
 
-        self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
-        # self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
+        # self.vessel = Vessel(np.array([0.0, 0.0, np.pi / 2, 0.0, 0.0, 0.0]), 1, 1)
+        self.vessel = Vessel(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), 1, 1)
         self.lidar_sensor = LidarSimulator(30, self.n_perception_features)
         self.last_lidar_readings = np.zeros(self.n_perception_features,)
         # self.lidar_sensor = SectorLidar(30)
@@ -171,7 +171,7 @@ class BaseEnvironment(gym.Env):
         # Update lidar visualization
         elif isinstance(self.lidar_sensor, LidarSimulator):
 
-            # self.lidar_sensor._ray_lines[1].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+            # self.lidar_sensor._ray_lines[0].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
             for ray_line in self.lidar_sensor._ray_lines:
                 ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
@@ -238,10 +238,12 @@ class BaseEnvironment(gym.Env):
         self.last_lidar_readings = lidar_readings
 
         # Check collision
-        collision = np.any(lidar_readings < self.vessel.width/2)
+        collision_radius = self.vessel.width/2
+        # collision_radius = 1.0
+        collision = np.any(lidar_readings < collision_radius)
         self.collision = collision
 
-        min_goal_dist = self.vessel.width/2
+        min_goal_dist = collision_radius
         min_goal_heading = np.deg2rad(15)
         min_speed = 0.1
 
@@ -262,7 +264,8 @@ class BaseEnvironment(gym.Env):
 
         per = lidar_readings/self.lidar_sensor.max_range
         # Subtract the vessels size to the lidar scans, such that we get 0 when actually crashing
-        per = ( lidar_readings - self.vessel.width/2 ) / ( self.lidar_sensor.max_range - self.vessel.width/2 )
+        # per = ( lidar_readings - self.vessel.width/2 ) / ( self.lidar_sensor.max_range - self.vessel.width/2 )
+        per = ( lidar_readings - collision_radius ) / ( self.lidar_sensor.max_range - collision_radius )
         per = np.clip(per, 0, 1)
 
 
@@ -470,7 +473,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level1
+        self.init_level = self.level2_n_3
         self.init_level(False)
 
     def _setup(self):
@@ -736,7 +739,9 @@ def play(env):
         #     record_nested_dict(print, info)
         #     print(f"reward {reward}")
         # print(info)
-        print(reward)
+        # print(reward)
+        
+        print(f"pos: {env.vessel.position}, heading: {env.vessel.heading}")
 
         # print(env.cumulative_reward)
         if done:
