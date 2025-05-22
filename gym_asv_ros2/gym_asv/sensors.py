@@ -10,6 +10,8 @@ from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity
 # import time
 from shapely.ops import nearest_points
 
+import gym_asv_ros2.gym_asv.utils.geom_utils as geom_utils
+
 # testing
 from gym_asv_ros2.gym_asv.visualization import TestCase
 
@@ -39,6 +41,8 @@ class LidarSimulator:
 
         # self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays)
         self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
+        self.angles = geom_utils.princip(self.angles)
+        print(self.angles)
         self._ray_lines = [ LineEntity(np.array([0.0,0.0]), np.array([0.0, 0.0]), color=(127,0,0)) for _ in range(self.num_rays)]
 
 
