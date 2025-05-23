@@ -133,7 +133,8 @@ class BaseEnvironment(gym.Env):
                 s.pyglet_shape.opacity = 64
 
         # Init lidar Visuals
-        elif isinstance(self.lidar_sensor, LidarSimulator):
+        else: 
+        # elif isinstance(self.lidar_sensor, LidarSimulator):
             for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
                 ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
                 ray_line.pyglet_shape.opacity = 64
@@ -169,7 +170,8 @@ class BaseEnvironment(gym.Env):
                 p.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
         # Update lidar visualization
-        elif isinstance(self.lidar_sensor, LidarSimulator):
+        else:
+        # elif isinstance(self.lidar_sensor, LidarSimulator):
 
             # self.lidar_sensor._ray_lines[0].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
             for ray_line in self.lidar_sensor._ray_lines:

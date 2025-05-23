@@ -12,7 +12,7 @@ import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
 
-from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, RandomGoalRandomObstEnv, RandomGoalWithDockObstacle
+from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, RandomGoalWithDockObstacle
 from gym_asv_ros2.gym_asv.environment import play as play_env
 
 # from stable_baselines3.common.callbacks import BaseCallback
