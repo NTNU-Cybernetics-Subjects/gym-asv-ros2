@@ -97,8 +97,8 @@ class SimulationNode(Node):
         # Initialize env
         # self.env = RandomGoalWithDockObstacle(render_mode="human")
         self.env = BaseEnvironment(render_mode=None, n_perception_features=0) # NOTE: Currently not using lidar in sim
-        # self.env.reset()
-        # self.env.render()
+        # FIXME: should not hardcode number of lidar rays
+        self.env.lidar_sensor = RosLidar(30.0, 64) # pyright: ignore
 
         # Action
         self.action = np.array([0.0, 0.0])
@@ -123,7 +123,6 @@ class SimulationNode(Node):
                 1
             )
             self.env.vessel = RosVessel(np.array([0,0,0,0,0,0]), 1, 1)
-            self.env.lidar_sensor = RosLidar(30.0, 64) # pyright: ignore
 
         # Set up rendering after all env hacks
         self.env.render_mode = "human"
@@ -197,6 +196,7 @@ class SimulationNode(Node):
 
 
     def obstacle_sub_callback(self, msg: String):
+        """Recives a configuration of virtual obstacles and adds it to the environment."""
 
         self.env.obstacles.clear()
 
@@ -214,6 +214,7 @@ class SimulationNode(Node):
 
 
     def waypoint_callback(self, msg: Waypoint):
+        """Update the waypoint visuals"""
 
         # waypoint = msg.data
 
@@ -223,6 +224,7 @@ class SimulationNode(Node):
  
 
     def render_callback(self):
+        """Render a frame. """
         
         observation, reward, done, truncated, info = self.env.step(self.action)
         # self.action[0], self.action[1] = 0.0, 0.0 # Reset action when we have used it
@@ -236,6 +238,7 @@ class SimulationNode(Node):
         self.get_logger().info(f"Vessel state is: {self.env.vessel._state}")
 
     def publish_state(self):
+        """Publish vessel state. To be used if simulating the environment."""
 
         # Publish state
         # sim_state = self.last_observation.flatten()[:6]
@@ -265,7 +268,7 @@ class SimulationNode(Node):
         def pwm_to_action(pwm):
             if pwm >= pwm_zero:
                 percentage = (pwm - pwm_zero) / (pwm_high - pwm_zero)
-            else: 
+            else:
                 percentage = (pwm - pwm_zero) / (pwm_zero - pwm_low)
             
             return max(min(percentage, 1.0), -1.0)
