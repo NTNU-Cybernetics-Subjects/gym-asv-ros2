@@ -40,9 +40,8 @@ class LidarSimulator:
         # self.angle_range = np.array([-np.pi + delta_angle/2, np.pi - delta_angle/2])
 
         # self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays)
-        self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
-        self.angles = geom_utils.princip(self.angles)
-        print(self.angles)
+        angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
+        self.angles = geom_utils.princip(angles)
         self._ray_lines = [ LineEntity(np.array([0.0,0.0]), np.array([0.0, 0.0]), color=(127,0,0)) for _ in range(self.num_rays)]
 
 
