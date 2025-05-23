@@ -58,12 +58,12 @@ class BaseEnvironment(gym.Env):
         # Use same shape on goal position as vessel
         self.goal = PolygonEntity(
             list(self.vessel.boundary.exterior.coords),
-            position=np.array([0,20]),
-            angle=np.pi/2,
+            position=np.array([20,0]),
+            angle=0.0,
             color=(0,127,0)
         )
 
-        self.obstacles = obstacles if obstacles else []
+        self.obstacles = []
 
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float64)
 
@@ -173,7 +173,7 @@ class BaseEnvironment(gym.Env):
         else:
         # elif isinstance(self.lidar_sensor, LidarSimulator):
 
-            # self.lidar_sensor._ray_lines[0].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
+            # self.lidar_sensor._ray_lines[-1].update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
             for ray_line in self.lidar_sensor._ray_lines:
                 ray_line.update_pyglet_position(self.viewer.camera_position, self.viewer.pixels_per_unit)
 
@@ -475,7 +475,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level2_n_3
+        self.init_level = self.level3
         self.init_level(False)
 
     def _setup(self):
@@ -494,18 +494,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         """
         print(msg)
 
-    def get_random_dock_side_coords(self, angle):
-
-        random_distance_from_pos = np.random.uniform(2,5)
-        random_angle = np.random.uniform(-np.pi/6, np.pi/6)
-        random_radius = np.random.uniform(0.5, 2)
-        
-        angle_offset = angle - np.pi/2 # 90 degrees rotated from dock angle
-
-        pos_angle = angle_offset - random_angle
-        pos_distance = random_distance_from_pos + random_radius
-
-        return pos_distance, pos_angle, random_radius
 
     def add_walls(self):
 
@@ -521,11 +509,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         self.add_obstacle(bottom_wall)
 
 
-    def translate_coord(self, position: np.ndarray, angle: float, lenght:float):
-        x = position[0] + (lenght * np.cos(angle))
-        y = position[1] + (lenght * np.sin(angle))
-        return np.array([x,y])
-
     def polar_to_cartesian(self, dist, angle):
 
         x = dist * np.cos(angle)
@@ -539,27 +522,13 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
             goal_dist = np.random.uniform(10,25)
             goal_angle = np.random.uniform(-np.pi, np.pi)
 
-            # random_goal_offset = np.random.uniform(-np.pi/6, np.pi/6)
-            random_goal_offset = 0
+            random_goal_offset = np.random.uniform(-np.pi/6, np.pi/6)
+            # random_goal_offset = 0
 
             print(f"Setting up position at dist: {goal_dist}, angle: {np.rad2deg(goal_angle)}")
 
             self.goal.position = self.polar_to_cartesian(goal_dist, goal_angle)
             self.goal.angle = goal_angle + random_goal_offset
-
-
-
-    # def level0(self, update_goal=True):
-    #     """Makes a randomized goal position"""
-    #     if update_goal:
-    #         angle_offset = np.pi/2
-    #         self.goal.position[0] = np.random.randint(-20,20)
-    #         self.goal.position[1] = np.random.randint(10,20) * np.random.choice([1, -1])
-    #         # random_angle = np.random.uniform(-np.pi/5, 0) # - 36°, 0
-    #         random_angle = np.random.uniform(-np.pi/4, np.pi/4) * np.random.choice([1, np.pi])# -45°, 45° 
-    #         # random_angle = np.pi/4
-    #         # self.goal.angle = angle_offset + (np.sign(self.goal.position[0]) * random_angle)
-    #         self.goal.angle = angle_offset + random_angle
 
 
     def level1(self, update_goal=True):
@@ -569,10 +538,11 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         random_dock_dist = self.vessel.length + np.random.uniform(1.5,3)
 
+        dock_obst_pos = self.goal.position + self.polar_to_cartesian(random_dock_dist, self.goal.angle)
         dock_obst = RectangularEntity(
-            self.translate_coord(self.goal.position, self.goal.angle, random_dock_dist),
-            width=1,
-            height=4,
+            dock_obst_pos,
+            width=4,
+            height=1,
             angle=self.goal.angle
         )
         self.add_obstacle(dock_obst)
@@ -582,26 +552,39 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         """Extends level 1, by also adding two obstacles on the side of the dock."""
 
         self.level1(update_goal=update_goal)
+    
 
-        # Random obstacle to right
-        dist1, ang1, r1 = self.get_random_dock_side_coords(self.goal.angle)
-        pos1 = self.translate_coord(self.goal.position, ang1, dist1)
+        def random_polar_coord():
+            random_radius = np.random.uniform(0.5, 2)
+            min_dist = random_radius + 1.5
+            random_distance_from_pos = np.random.uniform(min_dist,5)
+            random_angle = np.random.uniform(0, np.pi/6)
+            return random_distance_from_pos, random_angle, random_radius
+
+        # print(correct_angle)
+
+        pos1, ang1, r1 = random_polar_coord()
+        ang1_shited = geom.princip(self.goal.angle + np.pi/2 + ang1)
+
+        pos1_xy = self.goal.position + self.polar_to_cartesian(pos1, ang1_shited)
+        # pos = self.polar_to_cartesian(5, np.pi/2)
         self.add_obstacle(
-            CircularEntity(pos1, r1)
+            CircularEntity(pos1_xy, r1)
         )
-        # random obstacle to left
-        dist2, ang2, r2 = self.get_random_dock_side_coords(self.goal.angle)
-        ang2_left = ang2 + np.pi
-        pos2 = self.translate_coord(self.goal.position, ang2_left, dist2)
+
+        pos2, ang2, r2 = random_polar_coord()
+        ang2_shited = geom.princip(self.goal.angle - np.pi/2 - ang2)
+
+        pos2_xy = self.goal.position + self.polar_to_cartesian(pos2, ang2_shited)
+        # pos = self.polar_to_cartesian(5, np.pi/2)
         self.add_obstacle(
-            CircularEntity(pos2, r2)
+            CircularEntity(pos2_xy, r2)
         )
 
 
     def level3(self, update_goal=True):
 
         self.level1(update_goal)
-        # self.level0(update_goal)
 
         los_anlge = np.arctan2(self.goal.position[1], self.goal.position[0])
         random_angle_offset = np.random.uniform(-np.pi/16, np.pi/16)
@@ -617,7 +600,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         random_distance = float(np.random.uniform(dist_min, dist_max))
 
-        obst_pos = self.translate_coord(np.array([self.vessel.position[0],self.vessel.position[1]]), angle, random_distance)
+        obst_pos = self.vessel.position + self.polar_to_cartesian(random_distance, angle)
         self.add_obstacle(CircularEntity(obst_pos, random_radius))
         # self.add_obstacle(RectangularEntity(obst_pos, diamter, diamter, self.goal.angle))
         # print(f"los_angle: {np.rad2deg(los_anlge)}, angle_with_random: {np.rad2deg(angle)}, dist: {random_distance}")
@@ -651,105 +634,105 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
     #
 
 
-class RandomGoalRandomObstEnv(BaseEnvironment):
-    """This Environment have random generated goal position and heading and random generated obstacles."""
+# class RandomGoalRandomObstEnv(BaseEnvironment):
+#     """This Environment have random generated goal position and heading and random generated obstacles."""
+#
+#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
+#         super().__init__(render_mode, n_perception_features=41, *args, **kwargs)
+#         self.add_obstacle(CircularEntity(np.array([10, 10]), 2))
+#         self.add_obstacle(CircularEntity(np.array([-10, 10]), 2))
+#
+#     def _setup(self):
+#
+#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+#
+#         if reached_goal:
+#             x, y, angle = self._calculate_random_circular_position(7,25)
+#             self.goal.position[0] = x
+#             self.goal.position[1] = y
+#             self.goal.angle = angle
+#
+#             n_obst = 3
+#             obstacles = []
+#             for i in range(n_obst):
+#                 x,y, _ = self._calculate_random_circular_position(5,40, angle, np.linalg.norm(self.goal.position))
+#                 obst = CircularEntity(np.array([x,y]), 2)
+#                 if self.render_mode:
+#                     obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+#                 obstacles.append(obst)
+#
+#             self.obstacles = obstacles
+#
+#         msg = f"""Episode was {reached_goal}, new dock configuration: p {self.goal.position}, angle {self.goal.angle}
+#         obs: p {[obs.position for obs in self.obstacles]}
+#         """
+#         print(msg)
+#         # print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
+#
+#     def _calculate_random_circular_position(self, min_dist, max_dist, excluded_angle=0.0, excluded_center_radius=0.0):
+#
+#         random_distance = np.random.uniform(min_dist,max_dist)
+#         random_angle = np.random.uniform(-np.pi, np.pi)
+#
+#         dist_error = abs( random_distance - excluded_center_radius )
+#         angle_error = abs(random_angle - excluded_angle)
+#
+#         # Make sure the point is outside
+#         if excluded_angle and excluded_center_radius:
+#             while dist_error < 4 and angle_error < np.deg2rad(30):
+#                 random_distance = np.random.uniform(min_dist,max_dist)
+#                 random_angle = np.random.uniform(-np.pi, np.pi)
+#
+#                 dist_error = abs( random_distance - excluded_center_radius )
+#                 angle_error = abs(random_angle - excluded_angle)
+#
+#
+#         x = random_distance * np.cos(random_angle)
+#         y = random_distance * np.sin(random_angle)
+#         angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
+#
+#         return x, y, angle
+#
 
-    def __init__(self, render_mode=None, *args, **kwargs) -> None:
-        super().__init__(render_mode, n_perception_features=41, *args, **kwargs)
-        self.add_obstacle(CircularEntity(np.array([10, 10]), 2))
-        self.add_obstacle(CircularEntity(np.array([-10, 10]), 2))
-        
-    def _setup(self):
-
-        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-
-        if reached_goal:
-            x, y, angle = self._calculate_random_circular_position(7,25)
-            self.goal.position[0] = x
-            self.goal.position[1] = y
-            self.goal.angle = angle
-
-            n_obst = 3
-            obstacles = []
-            for i in range(n_obst):
-                x,y, _ = self._calculate_random_circular_position(5,40, angle, np.linalg.norm(self.goal.position))
-                obst = CircularEntity(np.array([x,y]), 2)
-                if self.render_mode:
-                    obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-                obstacles.append(obst)
-
-            self.obstacles = obstacles
-
-        msg = f"""Episode was {reached_goal}, new dock configuration: p {self.goal.position}, angle {self.goal.angle}
-        obs: p {[obs.position for obs in self.obstacles]}
-        """
-        print(msg)
-        # print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
-
-    def _calculate_random_circular_position(self, min_dist, max_dist, excluded_angle=0.0, excluded_center_radius=0.0):
-
-        random_distance = np.random.uniform(min_dist,max_dist)
-        random_angle = np.random.uniform(-np.pi, np.pi)
-
-        dist_error = abs( random_distance - excluded_center_radius )
-        angle_error = abs(random_angle - excluded_angle)
-
-        # Make sure the point is outside
-        if excluded_angle and excluded_center_radius:
-            while dist_error < 4 and angle_error < np.deg2rad(30):
-                random_distance = np.random.uniform(min_dist,max_dist)
-                random_angle = np.random.uniform(-np.pi, np.pi)
-
-                dist_error = abs( random_distance - excluded_center_radius )
-                angle_error = abs(random_angle - excluded_angle)
-
-
-        x = random_distance * np.cos(random_angle)
-        y = random_distance * np.sin(random_angle)
-        angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
-
-        return x, y, angle
-
-
-class RandomDockEnvObstacles(Environment):
-
-    def __init__(self, render_mode=None, *args, **kwargs) -> None:
-
-        # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
-        # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0) 
-        super().__init__(render_mode, obstacles=None, *args, **kwargs)
-
-        self.dock_obst = RectangularEntity(
-            self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length +2),
-            width=1,
-            height=4,
-            angle= self.dock.angle
-        )
-        if render_mode: # Init the shape since it is added after calling super().__init__
-            self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-
-        self.obstacles.append(self.dock_obst)
-        
-    
-    def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
-        x = position[0] + lenght * np.cos(angle)
-        y = position[1] + lenght * np.sin(angle)
-        return np.array([x,y])
-
-    def _setup(self):
-        # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
-        reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-
-        if reached_goal:
-            self.dock.position[0] = np.random.randint(-20,20)
-            self.dock.position[1] = np.random.randint(5,20)
-            self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
-
-            self.dock_obst.position = self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2)
-            self.dock_obst.angle = self.dock.angle
-            self.dock_obst.init_boundary()
-
-        print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
+# class RandomDockEnvObstacles(Environment):
+#
+#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
+#
+#         # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
+#         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0) 
+#         super().__init__(render_mode, obstacles=None, *args, **kwargs)
+#
+#         self.dock_obst = RectangularEntity(
+#             self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length +2),
+#             width=1,
+#             height=4,
+#             angle= self.dock.angle
+#         )
+#         if render_mode: # Init the shape since it is added after calling super().__init__
+#             self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+#
+#         self.obstacles.append(self.dock_obst)
+#
+#
+#     def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
+#         x = position[0] + lenght * np.cos(angle)
+#         y = position[1] + lenght * np.sin(angle)
+#         return np.array([x,y])
+#
+#     def _setup(self):
+#         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
+#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
+#
+#         if reached_goal:
+#             self.dock.position[0] = np.random.randint(-20,20)
+#             self.dock.position[1] = np.random.randint(5,20)
+#             self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
+#
+#             self.dock_obst.position = self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2)
+#             self.dock_obst.angle = self.dock.angle
+#             self.dock_obst.init_boundary()
+#
+#         print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
 
 
 ### -- debugging ---
@@ -783,7 +766,7 @@ def play(env):
         # print(info)
         # print(reward)
         
-        print(f"pos: {env.vessel.position}, heading: {env.vessel.heading}")
+        # print(f"pos: {env.vessel.position}, heading: {env.vessel.heading}")
 
         # print(env.cumulative_reward)
         if done:

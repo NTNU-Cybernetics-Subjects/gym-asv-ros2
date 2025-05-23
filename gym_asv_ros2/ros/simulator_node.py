@@ -13,20 +13,21 @@ from gym_asv_ros2.gym_asv.entities import CircularEntity
 from gym_asv_ros2.gym_asv.vessel import Vessel
 from gym_asv_ros2.gym_asv.visualization import Visualizer, BG_PMG_PATH
 from gym_asv_ros2.gym_asv.environment import BaseEnvironment, RandomGoalBlindEnv, RandomGoalWithDockObstacle
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 from rclpy.logging import LoggingSeverity
 
-from gym_asv_ros2.ros.ros_helpers import RosVessel
+from gym_asv_ros2.ros.ros_helpers import RosLidar, RosVessel
 # from gym_asv_ros2.ros.agent_node import RosVessel
 
 import pickle, base64
 
-def add_a_line_of_sigth_obstalce(vessel_pos, goal_pos, goal_angle):
-
-
-    los = np.arctan2(goal_pos[2], goal_pos[1])
-
-    distance_to_goal = np.linalg.norm(goal_pos - vessel_pos)
+# def add_a_line_of_sigth_obstalce(vessel_pos, goal_pos, goal_angle):
+#
+#
+#     los = np.arctan2(goal_pos[2], goal_pos[1])
+#
+#     distance_to_goal = np.linalg.norm(goal_pos - vessel_pos)
 
 
 class SimulationNode(Node):
@@ -52,16 +53,11 @@ class SimulationNode(Node):
             1
         )
 
-
-        self.lidar_pub = self.create_publisher(
-            LaserScan,
-            "/ouster/scan",
-            1
-        )
-        self.observation_pub = self.create_subscription(
+        # Info from agent
+        self.agent_info_sub = self.create_subscription(
             RlLogMessage,
             "/gym_asv_ros2/internal/log_data",
-            self.observation_sub_callback,
+            self.agent_info_sub_callback,
             1
         )
 
@@ -80,9 +76,27 @@ class SimulationNode(Node):
         )
 
 
+        self.lidar_pub = self.create_publisher(
+            LaserScan,
+            "/ouster/scan",
+            1
+        )
+
+        # qos_profile = QoSProfile(depth=10)
+        # qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
+        #
+        # # Test
+        # self.lidar_sub = self.create_subscription(
+        #     LaserScan,
+        #     "/ouster/scan",
+        #     self.lidar_sub_callback,
+        #     qos_profile
+        # )
+
+
         # Initialize env
         # self.env = RandomGoalWithDockObstacle(render_mode="human")
-        self.env = BaseEnvironment(render_mode="human", n_perception_features=0) # NOTE: Currently not using lidar in sim
+        self.env = BaseEnvironment(render_mode=None, n_perception_features=0) # NOTE: Currently not using lidar in sim
         # self.env.reset()
         # self.env.render()
 
@@ -101,6 +115,7 @@ class SimulationNode(Node):
             )
             self.create_timer(observation_pub_frequence, self.publish_state) # FIXME: Do no set up if we are not simulation
         else:
+            # Set up real vessel and real Lidar
             self.vessel_state_sub = self.create_subscription(
                 BoatState,
                 "/microampere/state_est/pos_vel_kalman",
@@ -108,23 +123,77 @@ class SimulationNode(Node):
                 1
             )
             self.env.vessel = RosVessel(np.array([0,0,0,0,0,0]), 1, 1)
-        self.logger.info(f"Node Initialized. Simulate vessel: {self.simulate_vessel}")
+            self.env.lidar_sensor = RosLidar(30.0, 64) # pyright: ignore
+
+        # Set up rendering after all env hacks
+        self.env.render_mode = "human"
+        self.env.viewer = Visualizer(1000, 1000, headless=False)
+        self.env.init_visualization()
 
         self.env.reset()
         self.env.render()
+
+        self.logger.info(f"Node Initialized. Simulate vessel: {self.simulate_vessel}")
 
 
     def __del__(self):
         self.env.close()
 
 
-    def observation_sub_callback(self, msg: RlLogMessage):
+    # def lidar_sub_callback(self, msg: LaserScan):
+    #
+    #     if not isinstance(self.env.lidar_sensor, RosLidar):
+    #         return
+    #
+    #     self.env.lidar_sensor.min_pooling_scan(msg)
+    #
+    #     lidar_scan = self.env.lidar_sensor.sense()
+    #     lidar_angles = self.env.lidar_sensor.angles
+    #
+    #     # Update the visuals
+    #     start_point = shapely.Point(self.env.vessel.position)
+    #
+    #     # lidar_x = lidar_scan * np.cos(angles)
+    #     # lidar_y = lidar_scan * np.sin(angles)
+    #
+    #     for i, angle in enumerate(lidar_angles):
+    #         # end_point = shapely.Point(lidar_x[i], lidar_y[i])
+    #
+    #         true_angle = angle + self.env.vessel.heading
+    #         end_point = shapely.Point(
+    #             start_point.x + lidar_scan[i] * np.cos(true_angle),
+    #             start_point.y + lidar_scan[i] * np.sin(true_angle)
+    #         )
+    #         self.env.lidar_sensor.update_ray_line(i, start_point, end_point)
+
+
+    def agent_info_sub_callback(self, msg: RlLogMessage):
+        """Update visuals according to the log message from the agent,
+            Currently only updates the lidar observation."""
+
 
         observation = msg.observation
+        lidar_scan = np.array(observation[5::]) * self.env.lidar_sensor.max_range
+        # print(len(lidar_scan))
+        angles = self.env.lidar_sensor.angles
 
+        # vessel_position = self.env.vessel.position
+        start_point = shapely.Point(self.env.vessel.position)
 
+        # lidar_x = lidar_scan * np.cos(angles)
+        # lidar_y = lidar_scan * np.sin(angles)
 
+        for i, angle in enumerate(angles):
+            # end_point = shapely.Point(lidar_x[i], lidar_y[i])
 
+            true_angle = angle + self.env.vessel.heading
+            end_point = shapely.Point(
+                start_point.x + lidar_scan[i] * np.cos(true_angle),
+                start_point.y + lidar_scan[i] * np.sin(true_angle)
+            )
+            self.env.lidar_sensor.update_ray_line(i, start_point, end_point)
+
+        print("observation processed")
 
 
     def obstacle_sub_callback(self, msg: String):
@@ -142,20 +211,6 @@ class SimulationNode(Node):
             self.env.add_obstacle(obstacle)
 
             self.logger.info(f"Adding obstacle: {obstacle}")
-
-            
-        # pickeled_list = [  for enrypted_obst in obstacle_encoded_list]
-        # obstacles = [pickle.loads(pickeled) for pickeled in pickeled_list]
-        #
-        # self.env.obstacles = obstacles
-        # Init visualization on the obstacles
-
-        # for obst in self.env.obstacles:
-        #     obstacle.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-        #     obst.init
-
-        # obstacles = [shapely.wkt.loads(obst) for obst in obstacle_list]
-        # self.env.obstacles = obstacles
 
 
     def waypoint_callback(self, msg: Waypoint):

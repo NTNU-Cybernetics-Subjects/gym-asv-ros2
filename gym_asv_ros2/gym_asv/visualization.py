@@ -11,13 +11,16 @@ from gym_asv_ros2.gym_asv.entities import BaseEntity, CircularEntity, LineEntity
 from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.vessel import Vessel
 
+# Better debug
+from rich.traceback import install as install_rich_traceback
+install_rich_traceback()
+
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
 BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:
-
         
         self.window = pyglet.window.Window( window_width, window_height,
                                            visible=( not headless ))
@@ -36,48 +39,57 @@ class Visualizer:
 
 
     def add_agent(self, agent_shape: shapely.geometry.Polygon):
+
         # Shape should be defined in origo
         scaled_agent_shape = shapely.affinity.scale(
             agent_shape, self.pixels_per_unit, self.pixels_per_unit, origin=(0,0)
         )
+        # Swap x, and y axis according to NED frame
+        scaled_y, scaled_x = scaled_agent_shape.exterior.xy
+        scaled_coordinates = np.stack((scaled_x, scaled_y), axis=1).tolist()
+
         self.agent = pyglet.shapes.Polygon(
-            *list(scaled_agent_shape.exterior.coords),
+            # *list(scaled_agent_shape.exterior.coords),
+            *scaled_coordinates,
             color=(0, 0, 127),
             batch=self.batch,
         )
 
         # anchor point defaults to first vertex, but should be in origo according to agent_shape
-        scale_offset = scaled_agent_shape.exterior.coords[0]
-        self.agent.anchor_position = (-scale_offset[0], -scale_offset[1])
+        scale_offset = scaled_coordinates[0]
+        self.agent.anchor_position = (-scale_offset[1], -scale_offset[0])
 
         self.agent.position = (self.window.width/2, self.window.height/2)
 
-
     def update_camerea_position(self, agent_position: np.ndarray):
         """Updates the camera position, The coordinate defines the center of the window.""" 
+
+        # agent_position = agent_position[::-1]
 
         # Following the agent by moving the camera oppiste of agents movement,
         # using the window offset to keep the agents position in the center for
         # the screen
         # camera_x = self.window.width/2
         # camera_y = self.window.height/2
-        camera_x = -agent_position[0] * self.pixels_per_unit + self.window.width/2
-        camera_y = -agent_position[1] * self.pixels_per_unit + self.window.height/2
+        camera_x = -agent_position[1] * self.pixels_per_unit + self.window.width/2
+        camera_y = -agent_position[0] * self.pixels_per_unit + self.window.height/2
         self.camera_position[0] = camera_x
         self.camera_position[1] = camera_y
+
 
     def update_agent(self, agent_position: np.ndarray, agent_heading: float):
         """Update the agent"""
 
         # xpos = self.camera_position[0] + (agent_position[0] * self.pixels_per_unit ) + self.window.width/2
         # ypos = self.camera_position[1] + (agent_position[1] * self.pixels_per_unit ) + self.window.height/2
-        xpos = self.camera_position[0] + (agent_position[0] * self.pixels_per_unit )
-        ypos = self.camera_position[1] + (agent_position[1] * self.pixels_per_unit )
-        self.agent.position = (xpos, ypos)
-        # print(f"camera_position: {self.camera_position}, vessel position: {xpos, ypos}") 
+        xpos_screen = self.camera_position[0] + (agent_position[1] * self.pixels_per_unit )
+        ypos_screen = self.camera_position[1] + (agent_position[0] * self.pixels_per_unit )
+        self.agent.position = (xpos_screen, ypos_screen)
+        # print(f"camera_position: {self.camera_position}, vessel position: {xpos, ypos}")
+        # print(f"screen_position: {xpos_screen, ypos_screen}, vessel position: {agent_position}, vessel heading: {agent_heading}")
 
         # self.agent.position = agent_position * self.pixels_per_unit + self.camera_position
-        self.agent.rotation = -np.rad2deg(agent_heading)
+        self.agent.rotation = np.rad2deg(agent_heading)
 
 
     def add_backround(self, bg_image_path: Path):
@@ -173,7 +185,7 @@ class TestCase:
     def __init__(self, obstacles: list[BaseEntity] | None = None) -> None:
         self.viewer = Visualizer(1000, 1000)
 
-        self.vessel = Vessel(np.array([0, 0, np.pi/2, 0, 0, 0]), 1, 1)
+        self.vessel = Vessel(np.array([0, 0, 0, 0, 0, 0]), 1, 1)
 
         self.obstacles = obstacles if obstacles else []
 
@@ -194,7 +206,7 @@ class TestCase:
         self.viewer.update_agent(self.vessel.position, self.vessel.heading)
 
         for obst in self.obstacles:
-            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+            print(f"[Test Game] initing pyglet for obeject: {obst}")
     
     def game_loop(self, setup: Callable | None = None, update: Callable | None = None):
 
@@ -228,77 +240,123 @@ class TestCase:
             t +=1
 
 if __name__ == "__main__":
-    v = Visualizer(1000, 1000)
 
-    vessel = Vessel(np.array([0, 0, np.pi/2 - np.pi/4, 0, 0, 0]), 1, 1)
-
-    bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
-
-    v.add_backround(bg_img_path)
-    v.add_agent(vessel.boundary)
-    v.update_agent(vessel.position, vessel.heading)
-
-    # Add obstacle:
-    obst = CircularEntity(np.array([10,10]), 1, color=(27, 127,0))
-    obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
-
-    # add polygon and points in all vertecies to check if the vizalization are the same as backend
-    pol, pol_origo, pol_vertecies = add_test_polygon()
-    pol.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    for ver in pol_vertecies:
-        ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
     
-    # add line:
-    line = LineEntity(np.array([2,2]), np.array([2,10]))
-    line.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    line_start_point = CircularEntity(line.position, 0.1, color=(255,0,0))
-    line_start_point.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # line = pyglet.shapes.Line(0,0, 20, 20, batch=v.batch, thickness=3)
+    game = TestCase()
 
-    # Add rectangle 
-    rect = RectangularEntity(np.array([10.0, 0.0]), 1.0,1.0, np.pi/4)
-    rect.init_pyglet_shape(v.pixels_per_unit, v.batch)
 
-    # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
+    def setup():
+        
+        # length = 1.0
+        # width = 1.0
+        # vertices = [
+        #     (-length/2, -width/2),
+        #     (-length/2, width/2),
+        #     (length/2, width/2),
+        #     (3/2*length, 0),
+        #     (length/2, -width/2),
+        # ]
+        vertices = [
+            (-0.5, -0.5),
+            (-0.5, 0.5),
+            (0.5, 0.5),
+            (3/2*1, 0),
+            (0.5, -0.5)
+        ]
+        
+        # vessel_like = PolygonEntity(vertecies=vertices, position=np.array([0.0,0.0]), angle=np.pi/2, color=(255, 0,0))
+        # vessel_like.init_pyglet_shape(game.viewer.pixels_per_unit, game.viewer.batch)
 
-    listner = KeyboardListner()
-    listner.start_listner()
-    v.update_screen()
+        rect = RectangularEntity(np.array([ 0, 0 ]), width=1, height=3, angle=0.7)
+        rect.init_pyglet_shape(game.viewer.pixels_per_unit, game.viewer.batch)
 
-    t = 0
-    while True:
-        if listner.quit:
-            break
+        origo = CircularEntity(np.array([0, 0]), 0.2)
+        origo.init_pyglet_shape(game.viewer.pixels_per_unit, game.viewer.batch)
+        # print(f"setting True origo to screen_position: {origo._pyglet_shape.position}")
+        
+        # vessel_like.init_pyglet_shape()
+        game.add_obstacles([ rect, origo])
+        # print(vessel_like.boundary.exterior.xy)
+    
+    def update():
+        pass
 
-        vessel.step(listner.action, 0.2)
 
-        v.update_camerea_position(vessel.position)
-        v.update_agent(vessel.position, vessel.heading)
-        v.update_background()
+    game.game_loop(setup, update)
 
-        obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        circle_visible = v.shape_in_window(obst.pyglet_shape)
-        # print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
 
-        pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        for ver in pol_vertecies:
-            ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-
-        line.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-        line_start_point.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-
-        rect.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-
-        # for ver in agent_vertecies:
-            # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-
-        v.update_screen()
-        # test = v.get_rbg_array()
-        # print(test)
-        t +=1
-        # print(f"vessel: {vessel.position}, obst: {pol.position}")
- 
-    v.close()
+    # v = Visualizer(1000, 1000)
+    #
+    # # vessel = Vessel(np.array([0, 0, np.pi/2 - np.pi/4, 0, 0, 0]), 1, 1)
+    # vessel = Vessel(np.array([0, 0, 0, 0, 0, 0]), 1, 1)
+    #
+    # bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
+    #
+    # v.add_backround(bg_img_path)
+    # v.add_agent(vessel.boundary)
+    # v.update_agent(vessel.position, vessel.heading)
+    #
+    # # Add obstacle:
+    # obst = CircularEntity(np.array([0,10]), 1, color=(27, 127,0))
+    # obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    #
+    # # add polygon and points in all vertecies to check if the vizalization are the same as backend
+    # # pol, pol_origo, pol_vertecies = add_test_polygon()
+    # # pol.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # # pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # # for ver in pol_vertecies:
+    # #     ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
+    #
+    # # add line:
+    # # line = LineEntity(np.array([2,2]), np.array([2,10]))
+    # # line.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # # line_start_point = CircularEntity(line.position, 0.1, color=(255,0,0))
+    # # line_start_point.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    # # line = pyglet.shapes.Line(0,0, 20, 20, batch=v.batch, thickness=3)
+    #
+    # # Add rectangle 
+    # # rect = RectangularEntity(np.array([10.0, 0.0]), 1.0,1.0, np.pi/4)
+    # # rect.init_pyglet_shape(v.pixels_per_unit, v.batch)
+    #
+    # # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
+    #
+    # listner = KeyboardListner()
+    # listner.start_listner()
+    # v.update_screen()
+    #
+    # t = 0
+    # while True:
+    #     if listner.quit:
+    #         break
+    #
+    #     vessel.step(listner.action, 0.2)
+    #
+    #     v.update_camerea_position(vessel.position)
+    #     v.update_agent(vessel.position, vessel.heading)
+    #     v.update_background()
+    #
+    #     obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     circle_visible = v.shape_in_window(obst.pyglet_shape)
+    #     # print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
+    #
+    #     # pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     # pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     # for ver in pol_vertecies:
+    #     #     ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     #
+    #     # line.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     # line_start_point.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #     #
+    #     # rect.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #
+    #     # for ver in agent_vertecies:
+    #         # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
+    #
+    #     v.update_screen()
+    #     # test = v.get_rbg_array()
+    #     # print(test)
+    #     t +=1
+    #     # print(f"vessel: {vessel.position}, obst: {pol.position}")
+    #
+    # v.close()

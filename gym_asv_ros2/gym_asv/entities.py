@@ -56,11 +56,11 @@ class BaseEntity:
 
     def update_pyglet_position(self, camera_position: np.ndarray, scale: float) -> None:
         """Updates the pyglet shape according to a camera position."""
-        screen_position = camera_position + ( self.position * scale)
+        screen_position = camera_position + ( self.position[::-1] * scale)
         self._pyglet_shape.position = screen_position.tolist()
 
         if self.angle:
-            self._pyglet_shape.rotation = -np.rad2deg(self.angle)
+            self._pyglet_shape.rotation = np.rad2deg(self.angle)
 
 
 class CircularEntity(BaseEntity):
@@ -83,8 +83,10 @@ class CircularEntity(BaseEntity):
     def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None:
         scaled_position = self.position * scale
         scaled_radius = self.radius * scale
+        screen_x = scaled_position[1]
+        screen_y = scaled_position[0]
         self._pyglet_shape = pyglet.shapes.Circle( # pyright: ignore
-            scaled_position[0], scaled_position[1], scaled_radius, batch=batch, color=self.color,
+            screen_x, screen_y, scaled_radius, batch=batch, color=self.color,
         )
 
     # TODO: Make an inteface to support dynamic obstacles.
@@ -97,6 +99,7 @@ class MovingCircularEntity(CircularEntity):
         self.position[0] -= 0.1
         self.position[1] -= 0.1
         self.init_boundary()
+
 
 class PolygonEntity(BaseEntity):
 
@@ -113,9 +116,8 @@ class PolygonEntity(BaseEntity):
 
     def init_boundary(self) -> None:
         origo_boundary = shapely.geometry.Polygon(self._vertecies)
-        rotated_boundary = shapely.affinity.rotate(origo_boundary, np.rad2deg(self.angle), origin=(0,0))
+        rotated_boundary = shapely.affinity.rotate(origo_boundary, self.angle, origin=(0,0), use_radians=True)
         self._boundary = shapely.affinity.translate(rotated_boundary, self.position[0], self.position[1]) # pyright: ignore
-
 
     def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None: 
 
@@ -124,19 +126,26 @@ class PolygonEntity(BaseEntity):
         scaled_shape = shapely.affinity.scale(
             origo_boundary, scale, scale, origin=(0,0)
         )
+        
+        # Swap x, and y axis according to NED frame
+        scaled_y_screen, scaled_x_screen = scaled_shape.exterior.xy
+        scaled_screen_vertecies = np.stack((scaled_x_screen, scaled_y_screen), axis=1).tolist()
+        
         self._pyglet_shape = pyglet.shapes.Polygon( # pyright: ignore
-            *list(scaled_shape.exterior.coords),
+            # *list(scaled_shape.exterior.coords),
+            *scaled_screen_vertecies,
             color=self.color,
             batch=batch,
         )
 
         # anchor point defaults to first vertex, but should be in origo according to agent_shape
-        scale_offset = scaled_shape.exterior.coords[0]
+        # scale_offset = scaled_shape.exterior.coords[0]
+        scale_offset = scaled_screen_vertecies[0]
         self._pyglet_shape.anchor_position = (-scale_offset[0], -scale_offset[1])
 
         # Update position and rotation
-        self._pyglet_shape.position = (self.position[0], self.position[1])
-        self._pyglet_shape.rotation = -np.rad2deg(self.angle)
+        self._pyglet_shape.position = (self.position[1], self.position[0])
+        self._pyglet_shape.rotation = np.rad2deg(self.angle)
 
 
     def update(self) -> None:
@@ -154,11 +163,12 @@ class RectangularEntity(PolygonEntity):
     def _calculate_vertecies(self, width, height):
         w = width/2
         h = height/2
+        # (x,y) in ned frame
         vertecies = [
-            (-w, -h),
-            (-w, h),
-            (w, h),
-            (w, -h)
+            (-h, -w),
+            (-h, w),
+            (h, w),
+            (h, -w)
         ]
         # print(f"Vertecies are {vertecies}")
         return vertecies
@@ -190,8 +200,8 @@ class LineEntity(BaseEntity):
 
     def init_pyglet_shape(self, scale: float, batch: pyglet.graphics.Batch) -> None:
         """Intialized the visual shape of the object."""
-        start_position = self.position * scale
-        end_position = self.end_position * scale
+        start_position = self.position[::-1] * scale
+        end_position = self.end_position[::-1] * scale
         self._pyglet_shape = pyglet.shapes.Line(start_position[0], start_position[1], # pyright: ignore
                                                 end_position[0], end_position[1],
                                                 batch=batch,
@@ -211,7 +221,7 @@ class LineEntity(BaseEntity):
         super().update_pyglet_position(camera_position, scale) # updates position and angle
 
         # Update the end position
-        screen_end_position = camera_position + ( self.end_position * scale)
+        screen_end_position = camera_position + ( self.end_position[::-1] * scale)
         self._pyglet_shape.x2 = screen_end_position[0]
         self._pyglet_shape.y2 = screen_end_position[1]
 

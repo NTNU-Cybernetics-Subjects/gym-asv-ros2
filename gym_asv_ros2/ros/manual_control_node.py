@@ -3,7 +3,7 @@
 # from gym_asv_ros2.visualization import Visualizer, BG_PMG_PATH
 import rclpy
 from rclpy.node import Node
-from blueboat_interfaces.msg import BlueboatActuatorInputs
+from microamp_interfaces.msg import BlueboatActuatorInputs
 # from blueboat_interfaces import blueboat_actuator_inputs
 import numpy as np
 # from gym_asv_ros2.simulator import Game
