@@ -168,6 +168,7 @@ class AgentNode(Node):
 
 
     def lidar_sub_callback(self, msg: LaserScan):
+        """Recive raw 2d lidarscan, and downscale it to match the agents observation space."""
 
         if not isinstance(self.real_env.lidar_sensor, RosLidar):
             return
@@ -182,6 +183,10 @@ class AgentNode(Node):
         # self.logger.info(f"Got {len(scan)} scan, \n{scan}")
     
     def operation_state_sub_callback(self, msg: Bool):
+        """Toogle signal to start/stop the RL-Controller
+            if True, controller is allowed to run,
+            if False, controller is not allowed to run
+        """
 
         self.run_state = msg.data
         self.logger.info(f"Recived operation state: {self.run_state}.")
@@ -194,6 +199,7 @@ class AgentNode(Node):
         
 
     def _stop_opertaion(self):
+        """Force stop operation."""
 
         self.run_state = False
 
@@ -204,13 +210,10 @@ class AgentNode(Node):
         self.operation_state_pub.publish(msg)
 
     def waypoint_callback(self, msg: Waypoint):
+        """Recives a waypoint, and update the agents goal to this waypoint."""
 
         # Save the waypoint
         self.last_waypoint_msg = msg
-
-        # Set run_state to true, TODO: set the run_state form the start_autonmous topic
-        # self.run_state = True
-        # self.logger.info(f"Run status is set to: {self.run_state}")
 
         # Set the waypoint
         self.logger.info(f"Recived waypoint. x: {msg.xn}, y: {msg.yn}, psi: {msg.psi_n}")
@@ -224,7 +227,9 @@ class AgentNode(Node):
         # TODO: set up simulated obstacles here
         self.sim_object_hack_setup()
 
+
     def sim_object_hack_setup(self):
+        """Create virtual obstacles, if not using simulated lidar the obstacles are ignored."""
 
 
         if self.env_sim_level == 0:
@@ -267,6 +272,7 @@ class AgentNode(Node):
         # # self.logger.info(f"Simulating obstacles at (pos, vertecies): {[[ obst.position, obst.boundary ] for obst in self.real_env.obstacles]}")
 
     def publish_log_data(self, last_reward, reached_goal, collision, observation):
+        """Publish log data."""
 
         log_msg = RlLogMessage()
         log_msg.boat_state = self.last_vessel_state_msg
@@ -295,7 +301,7 @@ class AgentNode(Node):
 
 
     def pub_action_to_pwm(self, action_stb: float, action_port: float):
-
+        """Convert action (-1, 1) to pwm signal (1100, 1900) and publish it to the thrusters."""
 
         pwm_zero = 1500
 
@@ -304,12 +310,6 @@ class AgentNode(Node):
 
         pwm_high = 400 * self.thrust_cap + pwm_zero
         pwm_low = pwm_zero - 400 * self.thrust_cap
-
-        # pwm_high = 1700
-        # pwm_high = 1300
-
-        # pwm_high = 1580
-        # pwm_low = 1420
         
         def action_to_pwm(per):
 
@@ -335,11 +335,12 @@ class AgentNode(Node):
 
         
     def run(self):
+        """Main loop of the controller. """
 
         if not self.run_state:
             self.pub_action_to_pwm(0.0, 0.0)
             return
-        
+
         # Check if have not gotten state data, TODO: add check for lidar data aswell
         time_now = self.get_clock().now()
         if time_now > self.last_time_state_recived + self.wait_for_data_duration:
@@ -350,7 +351,6 @@ class AgentNode(Node):
         dummy_action = np.array([0.0, 0.0])
         observation, reward, done, truncated, info = self.real_env.step(dummy_action)
 
-        # print(reward)
         # observation = self.real_env.observe()
         action, _states = self.agent.predict(observation, deterministic=True)
         # action, _states = self.agent.predict(observation, deterministic=False)
@@ -359,8 +359,6 @@ class AgentNode(Node):
         reached_goal = bool(info["reached_goal"])
         collision = bool(info["collision"])
         observation = info["observation"].tolist()
-
-        # print(info)
 
         # self.get_logger().info(f"state is: {self.real_env.vessel._state}, action: {action}")
 
@@ -380,19 +378,6 @@ class AgentNode(Node):
                 # self.run_state = False
                 # self.reached_goal_timer_iteration = 0
             # self.reached_goal_timer_iteration += 1
-
-
-            # self.real_env.reset()
-            # self.get_logger().info(f"New goal is at: {self.real_env.goal.position}")
-            # self.waypoint_pub.publish(
-            #     Float32MultiArray(
-            #         data=[
-            #             self.real_env.goal.position[0],
-            #             self.real_env.goal.position[1],
-            #             self.real_env.goal.angle
-            #         ]
-            #     )
-            # )
 
         self.pub_action_to_pwm(
             action[0],
