@@ -246,15 +246,15 @@ class BaseEnvironment(gym.Env):
         collision = np.any(lidar_readings < collision_radius)
         self.collision = collision
 
-        min_goal_dist = collision_radius
-        min_goal_heading = np.deg2rad(15)
-        min_speed = 0.1
+        # min_goal_dist = collision_radius
+        # min_goal_heading = np.deg2rad(15)
+        # min_speed = 0.1
 
         # check if we reached goal
-        if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading:
+        # if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading:
         # if goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading and np.linalg.norm(vessel_velocity) < min_speed:
             # self.reached_goal_count += 1
-            self.reached_goal = True
+            # self.reached_goal = True
 
         nav = np.array([
             vessel_velocity[0], # surge
@@ -274,6 +274,19 @@ class BaseEnvironment(gym.Env):
 
         obs = np.concatenate([nav, per])
         return obs
+
+    def check_reached_goal(self, observation):
+
+        min_goal_dist = self.vessel.width/2
+        min_goal_heading = np.deg2rad(15)
+        min_speed = 0.1
+
+        goal_dist_error = observation[3]
+        goal_heading_error = observation[4]
+
+        return goal_dist_error < min_goal_dist and abs(goal_heading_error) < min_goal_heading
+
+        
 
     # def new_closure_reward(self, current_observation, last_observation, alpha=1.0, beta=1.0):
     #
@@ -404,6 +417,7 @@ class BaseEnvironment(gym.Env):
 
         # Observe (and check if we reached goal)
         observation = self.observe()
+        self.reached_goal = self.check_reached_goal(observation)
 
         # Reward function
         # reward = self.closure_reward()
@@ -637,106 +651,72 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
     #
 
 
-# class RandomGoalRandomObstEnv(BaseEnvironment):
-#     """This Environment have random generated goal position and heading and random generated obstacles."""
-#
-#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-#         super().__init__(render_mode, n_perception_features=41, *args, **kwargs)
-#         self.add_obstacle(CircularEntity(np.array([10, 10]), 2))
-#         self.add_obstacle(CircularEntity(np.array([-10, 10]), 2))
-#
-#     def _setup(self):
-#
-#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-#
-#         if reached_goal:
-#             x, y, angle = self._calculate_random_circular_position(7,25)
-#             self.goal.position[0] = x
-#             self.goal.position[1] = y
-#             self.goal.angle = angle
-#
-#             n_obst = 3
-#             obstacles = []
-#             for i in range(n_obst):
-#                 x,y, _ = self._calculate_random_circular_position(5,40, angle, np.linalg.norm(self.goal.position))
-#                 obst = CircularEntity(np.array([x,y]), 2)
-#                 if self.render_mode:
-#                     obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-#                 obstacles.append(obst)
-#
-#             self.obstacles = obstacles
-#
-#         msg = f"""Episode was {reached_goal}, new dock configuration: p {self.goal.position}, angle {self.goal.angle}
-#         obs: p {[obs.position for obs in self.obstacles]}
-#         """
-#         print(msg)
-#         # print(f"Episode was {reached_goal}, new dock configuration, p {self.goal.position} angle: {self.goal.angle}")
-#
-#     def _calculate_random_circular_position(self, min_dist, max_dist, excluded_angle=0.0, excluded_center_radius=0.0):
-#
-#         random_distance = np.random.uniform(min_dist,max_dist)
-#         random_angle = np.random.uniform(-np.pi, np.pi)
-#
-#         dist_error = abs( random_distance - excluded_center_radius )
-#         angle_error = abs(random_angle - excluded_angle)
-#
-#         # Make sure the point is outside
-#         if excluded_angle and excluded_center_radius:
-#             while dist_error < 4 and angle_error < np.deg2rad(30):
-#                 random_distance = np.random.uniform(min_dist,max_dist)
-#                 random_angle = np.random.uniform(-np.pi, np.pi)
-#
-#                 dist_error = abs( random_distance - excluded_center_radius )
-#                 angle_error = abs(random_angle - excluded_angle)
-#
-#
-#         x = random_distance * np.cos(random_angle)
-#         y = random_distance * np.sin(random_angle)
-#         angle = random_angle + np.random.uniform(-np.pi/5, np.pi/5)
-#
-#         return x, y, angle
-#
+class DpEnv(BaseEnvironment):
 
-# class RandomDockEnvObstacles(Environment):
-#
-#     def __init__(self, render_mode=None, *args, **kwargs) -> None:
-#
-#         # obstacles = [ CircularEntity(np.array([10.0, 0]), 1)]
-#         # rect = RectangularEntity(np.array([10.0,0]), 2,2,0.0) 
-#         super().__init__(render_mode, obstacles=None, *args, **kwargs)
-#
-#         self.dock_obst = RectangularEntity(
-#             self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length +2),
-#             width=1,
-#             height=4,
-#             angle= self.dock.angle
-#         )
-#         if render_mode: # Init the shape since it is added after calling super().__init__
-#             self.dock_obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-#
-#         self.obstacles.append(self.dock_obst)
-#
-#
-#     def _calculate_dock_obst_position(self, position: np.ndarray, angle: float, lenght:float):
-#         x = position[0] + lenght * np.cos(angle)
-#         y = position[1] + lenght * np.sin(angle)
-#         return np.array([x,y])
-#
-#     def _setup(self):
-#         # self.obstacles.append(CircularObstacle(np.array([0,10]), 1))
-#         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
-#
-#         if reached_goal:
-#             self.dock.position[0] = np.random.randint(-20,20)
-#             self.dock.position[1] = np.random.randint(5,20)
-#             self.dock.angle = np.random.uniform(-np.pi/4, np.pi/4)
-#
-#             self.dock_obst.position = self._calculate_dock_obst_position(self.dock.position, self.dock.angle, self.vessel.length + 2)
-#             self.dock_obst.angle = self.dock.angle
-#             self.dock_obst.init_boundary()
-#
-#         print(f"dock configuration, p {self.dock.position} angle: {self.dock.angle}")
+    def __init__(self, render_mode=None, n_perception_features: int = 64, *args, **kwargs) -> None:
+        super().__init__(render_mode, n_perception_features, *args, **kwargs)
 
+        self.reached_goal_iterations = 0
+
+    def _setup(self):
+
+        # Calculate random external distrubrances
+        random_X = np.random.uniform(-2, 2)
+        random_Y = np.random.uniform(-2, 2)
+        random_R = np.random.uniform(-0.2, 0.2)
+
+        self.vessel.external_forces = np.array([random_X, random_Y, random_R])
+
+        self.set_goal(self.vessel.position, self.vessel.heading)
+
+        self.obstacles.clear()
+        self.add_walls()
+
+    def set_goal(self, position, heading):
+
+        random_pos_offset = np.random.uniform(-1, 1, (2,))
+        random_angle_offset = np.random.uniform(-0.26, 0.26)
+        
+        
+        self.goal.position = position + random_pos_offset
+        self.goal.angle = heading + random_angle_offset
+
+    def check_reached_goal(self, observation):
+        # return super().check_reached_goal(observation)
+        
+        min_goal_dist = self.vessel.width
+        min_goal_heading = np.deg2rad(15)
+
+        goal_dist_error = observation[3]
+        goal_heading_error = observation[4]
+
+        # count if we stay at position
+        if goal_dist_error < min_goal_dist:
+            self.reached_goal_iterations += 1
+            print("ok")
+        else:
+            self.reached_goal_iterations = 0
+
+        if self.reached_goal_iterations >= 100:
+            self.reached_goal = True
+
+
+    def add_walls(self):
+
+        x = self.goal.position[0]
+        y = self.goal.position[1]
+        # self.level2(update_goal=update_goal)
+        left_wall = RectangularEntity(np.array([ x, y-5 ]), 1, 10)
+        right_wall = RectangularEntity(np.array([x, y+5]), 1, 10)
+        top_wall = RectangularEntity(np.array([x+5, y]), 10, 1)
+        bottom_wall = RectangularEntity(np.array([x-5, y]), 10, 1)
+
+        self.add_obstacle(left_wall)
+        self.add_obstacle(right_wall)
+        self.add_obstacle(top_wall)
+        self.add_obstacle(bottom_wall)
+        
+    
 
 ### -- debugging ---
 def play(env):

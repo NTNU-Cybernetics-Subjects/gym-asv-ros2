@@ -63,6 +63,7 @@ class Vessel:
         self._thruster_params = ThrusterParams() # TODO: Config input on values?
 
         self._max_speed = 3
+        self.external_forces = np.array([0.0, 0.0, 0.0])
 
     @property
     def width(self) -> float:
@@ -127,6 +128,18 @@ class Vessel:
         return shapely.geometry.Polygon(vertices)
 
 
+    def external_forces_to_body(self, psi):
+
+        Tx_ned = self.external_forces[0]
+        Ty_ned = self.external_forces[1]
+        Txb = Tx_ned * np.cos(psi) + Ty_ned * np.sin(psi)
+        Tyb = -Tx_ned * np.sin(psi) + Ty_ned * np.cos(psi)
+
+        return np.array([Txb, Tyb, self.external_forces[2]])
+
+        # return np.array()
+
+
     # The ODE to solve (Continuous)
     def _state_dot(self, h, state, input):
         # States
@@ -141,6 +154,8 @@ class Vessel:
 
         # Model matrices TODO: force should be modeleded?
         tau = np.array([u1 + u2, 0, - (l1 * u1) - (l2 * u2)]).T
+
+        tau = tau + self.external_forces_to_body(self.heading)
 
         p = self._model_params
         M = np.array(
