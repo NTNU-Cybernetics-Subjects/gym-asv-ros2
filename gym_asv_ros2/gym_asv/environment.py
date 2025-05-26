@@ -660,9 +660,12 @@ class DpEnv(BaseEnvironment):
 
     def _setup(self):
 
+        self.vessel._init_state[2] = np.random.uniform(-np.pi, np.pi)
+        self.reached_goal_iterations = 0
+
         # Calculate random external distrubrances
-        random_X = np.random.uniform(-2, 2)
-        random_Y = np.random.uniform(-2, 2)
+        random_X = np.random.uniform(-3, 3)
+        random_Y = np.random.uniform(-3, 3)
         random_R = np.random.uniform(-0.2, 0.2)
 
         self.vessel.external_forces = np.array([random_X, random_Y, random_R])
@@ -693,12 +696,13 @@ class DpEnv(BaseEnvironment):
         # count if we stay at position
         if goal_dist_error < min_goal_dist:
             self.reached_goal_iterations += 1
-            print("ok")
+            print(f"ok: {self.reached_goal_iterations}")
         else:
             self.reached_goal_iterations = 0
 
-        if self.reached_goal_iterations >= 100:
-            self.reached_goal = True
+        return self.reached_goal_iterations >= 200
+        # if self.reached_goal_iterations >= 10:
+        #     self.reached_goal = True
 
 
     def add_walls(self):
