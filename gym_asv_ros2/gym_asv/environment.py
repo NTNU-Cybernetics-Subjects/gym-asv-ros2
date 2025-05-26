@@ -240,8 +240,8 @@ class BaseEnvironment(gym.Env):
         self.last_lidar_readings = lidar_readings
 
         # Check collision
-        # collision_radius = self.vessel.width/2
-        collision_radius = self.vessel.width
+        collision_radius = self.vessel.width/2
+        # collision_radius = self.vessel.width
         # collision_radius = 1.0
         collision = np.any(lidar_readings < collision_radius)
         self.collision = collision
@@ -316,7 +316,7 @@ class BaseEnvironment(gym.Env):
         last_obs = last_observation.flatten()
 
         current_speed = np.linalg.norm(current_observation[0:2])
-        if self.collision: # TODO: Consider adding collision that scales with speed
+        if self.collision:
             # reward = -500.0
             reward = ( -100 * current_speed ) - 400
             return reward
@@ -614,7 +614,6 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         self.level2(update_goal)
         self.level3(False)
-
 
     # def level3(self, update_goal=True):
     #     """Extends level 1, by adding a obstacle in direct line of sight to the desired position."""
