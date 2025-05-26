@@ -240,6 +240,7 @@ class AgentNode(Node):
 
         self.helper_env = RandomGoalWithDockObstacle(render_mode=None)
         self.helper_env.obstacles.clear()
+        self.helper_env.vessel._state = self.real_env.vessel._state
 
         self.logger.info(f"Using sim_lvl for virtual obstacles: {self.env_sim_level}")
 

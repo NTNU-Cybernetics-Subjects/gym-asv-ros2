@@ -28,7 +28,7 @@ class BaseSensor:
 
 class LidarSimulator:
 
-    def __init__(self, max_range: float, num_rays: float):
+    def __init__(self, max_range: float, num_rays: int):
         self.max_range = max_range # [m]
 
         self.num_rays = num_rays
