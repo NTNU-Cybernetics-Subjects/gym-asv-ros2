@@ -586,7 +586,9 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         self.level1(update_goal)
 
-        los_anlge = np.arctan2(self.goal.position[1], self.goal.position[0])
+        dx = self.goal.position[0] - self.vessel.position[0]
+        dy = self.goal.position[1] - self.vessel.position[1]
+        los_anlge = np.arctan2(dy, dx)
         random_angle_offset = np.random.uniform(-np.pi/16, np.pi/16)
         # random_angle_offset = 0
 
@@ -595,8 +597,9 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
         random_radius = np.random.uniform(1, 2)
         diamter = random_radius*2
 
-        dist_min = 3 + diamter
-        dist_max = np.linalg.norm(self.goal.position) - 3 - diamter
+        # TODO: take into account where the vessel is at
+        dist_min = 2 + diamter
+        dist_max = np.linalg.norm(self.goal.position - self.vessel.position) - 2 - diamter
 
         random_distance = float(np.random.uniform(dist_min, dist_max))
 
