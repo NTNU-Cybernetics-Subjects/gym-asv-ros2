@@ -64,7 +64,7 @@ class BaseEntity:
 
 
 class CircularEntity(BaseEntity):
-    def __init__(self, position: np.ndarray, radius: float, color=(205, 197, 197)) -> None:
+    def __init__(self, position: np.ndarray, radius: float, color=(112, 128, 144)) -> None:
         self.position = position
         self.radius = radius
         self.color = color
@@ -154,7 +154,7 @@ class PolygonEntity(BaseEntity):
 
 class RectangularEntity(PolygonEntity):
 
-    def __init__(self, position: np.ndarray, width: float, height: float, angle: float=0.0, color: tuple = (255,255,255)) -> None:
+    def __init__(self, position: np.ndarray, width: float, height: float, angle: float=0.0, color: tuple = (112,128,144)) -> None:
         self.width = width
         self.height = height
         super().__init__(self._calculate_vertecies(width, height), position, angle, color)

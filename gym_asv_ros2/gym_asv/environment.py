@@ -28,7 +28,7 @@ class BaseEnvironment(gym.Env):
     metadata = {"render_modes": [None, "human", "rgb_array"], "render_fps": 30}
 
     def __init__(self, render_mode=None, n_perception_features: int = 0, *args, **kwargs) -> None:
-# Set render mode if render_mode not in self.metadata["render_modes"]: raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
+        # Set render mode if render_mode not in self.metadata["render_modes"]: raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
         self.render_mode = render_mode
 
         # Metadata
@@ -60,7 +60,7 @@ class BaseEnvironment(gym.Env):
             list(self.vessel.boundary.exterior.coords),
             position=np.array([20,0]),
             angle=0.0,
-            color=(0,127,0)
+            color=(50,205,50)
         )
 
         self.obstacles = []
@@ -133,7 +133,7 @@ class BaseEnvironment(gym.Env):
                 s.pyglet_shape.opacity = 64
 
         # Init lidar Visuals
-        else: 
+        else:
         # elif isinstance(self.lidar_sensor, LidarSimulator):
             for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
                 ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
@@ -240,7 +240,8 @@ class BaseEnvironment(gym.Env):
         self.last_lidar_readings = lidar_readings
 
         # Check collision
-        collision_radius = self.vessel.width/2
+        # collision_radius = self.vessel.width/2
+        collision_radius = self.vessel.width
         # collision_radius = 1.0
         collision = np.any(lidar_readings < collision_radius)
         self.collision = collision

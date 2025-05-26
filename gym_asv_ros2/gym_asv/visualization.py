@@ -18,6 +18,7 @@ install_rich_traceback()
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
 BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
+BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/ChatGPT_bg.png") # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:
@@ -51,7 +52,7 @@ class Visualizer:
         self.agent = pyglet.shapes.Polygon(
             # *list(scaled_agent_shape.exterior.coords),
             *scaled_coordinates,
-            color=(0, 0, 127),
+            color=(255, 140, 0),
             batch=self.batch,
         )
 
