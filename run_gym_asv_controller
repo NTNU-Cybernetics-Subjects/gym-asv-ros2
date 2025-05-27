@@ -15,7 +15,9 @@ fi
 source install/setup.bash
 
 
-CONFIG_FILE="./src/gym_asv_ros2/params_files/2x256_agent_level2_n_3_continus_no_speed.yml"
+CONFIG_FILE="./src/gym_asv_ros2/params_files/2x_256_agent_w_dp.yml"
+# CONFIG_FILE="./src/gym_asv_ros2/params_files/2x256_agent_level2_n_3_continus_no_speed.yml"
+# CONFIG_FILE="./src/gym_asv_ros2/params_files/2x256_agent_level3.yml"
 
 # ros2 run gym_asv_ros2 agent_node --ros-args -p agent:=./src/gym_asv_ros2/deploy_agent/agent.zip
 ros2 run gym_asv_ros2 agent_node --ros-args --params-file $CONFIG_FILE

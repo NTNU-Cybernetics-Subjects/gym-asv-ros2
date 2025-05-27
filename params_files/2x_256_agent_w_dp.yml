@@ -1,0 +1,9 @@
+
+gym_asv_agent_node:
+  ros__parameters:
+    agent: "./src/gym_asv_ros2/deploy_agent/2x256_7020000__4646.zip"
+    dp_agent: "./src/gym_asv_ros2/deploy_agent/2x_256_n_64_DP_1860000__4236.zip"
+    n_perception: 64
+    simulated_lidar: True
+    env_sim_level: 3
+    thrust_cap: 0.6

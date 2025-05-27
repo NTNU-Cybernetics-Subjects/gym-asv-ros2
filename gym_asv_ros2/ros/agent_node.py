@@ -40,6 +40,9 @@ class AgentNode(Node):
         self.declare_parameter("agent", "")
         agent_file = self.get_parameter("agent").get_parameter_value().string_value
 
+        self.declare_parameter("dp_agent", "")
+        dp_agent_file = self.get_parameter("dp_agent").get_parameter_value().string_value
+
         # N perception
         self.declare_parameter("n_perception", 0)
         n_perception_features = self.get_parameter("n_perception").get_parameter_value().integer_value
@@ -54,11 +57,11 @@ class AgentNode(Node):
         self.declare_parameter("thrust_cap", 0.2)
         self.thrust_cap = self.get_parameter("thrust_cap").get_parameter_value().double_value
 
-
         # Dump all paramters
         self.logger.info(f"""
         Loading paramters:
             agent_file: {agent_file}
+            dp_agent_file: {dp_agent_file}
             n_perception: {n_perception_features}
             simulated_lidar: {simulated_lidar}
             env_sim_level: {self.env_sim_level}
@@ -137,10 +140,13 @@ class AgentNode(Node):
         ## Variables
 
         self.run_state = False # Set the state of the controller
+        self.dp_mode = False
 
         # Rl related
         self.agent = PPO.load(agent_file)
         self.real_env = BaseEnvironment(render_mode=None, n_perception_features=n_perception_features)
+
+        self.dp_agent = PPO.load(dp_agent_file) if dp_agent_file else None
 
         self.real_env.vessel = RosVessel(np.zeros(6,), 1, 1)
 
@@ -189,7 +195,8 @@ class AgentNode(Node):
         """
 
         self.run_state = msg.data
-        self.logger.info(f"Recived operation state: {self.run_state}.")
+        self.dp_mode = False
+        self.logger.info(f"Recived operation state: {self.run_state}. Setting dp_mode: {self.dp_mode}")
 
         # Set init state for the agent as current state.
         if self.run_state:
@@ -353,8 +360,13 @@ class AgentNode(Node):
         observation, reward, done, truncated, info = self.real_env.step(dummy_action)
 
         # observation = self.real_env.observe()
-        action, _states = self.agent.predict(observation, deterministic=True)
-        # action, _states = self.agent.predict(observation, deterministic=False)
+        if self.dp_mode and self.dp_agent:
+            action, _states = self.dp_agent.predict(observation, deterministic=True)
+            # action, _states = self.agent.predict(observation, deterministic=False)
+        else:
+            action, _states = self.agent.predict(observation, deterministic=True)
+            # action, _states = self.agent.predict(observation, deterministic=False)
+            
 
         # TODO: check if these values makes sense
         reached_goal = bool(info["reached_goal"])
@@ -366,8 +378,10 @@ class AgentNode(Node):
         # TODO: Figure out what to do when reaching the goal.
         if done:
             if reached_goal:
-                self.logger.info(f"Reached goal at, {self.real_env.goal.position}")
-                self._stop_opertaion()
+                self.logger.info(f"Reached goal at, {self.real_env.goal.position}.")
+                self.dp_mode = True
+                if not self.dp_agent:
+                    self._stop_opertaion()
                 # self.real_env.reset()
 
             elif collision:
