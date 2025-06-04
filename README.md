@@ -1,5 +1,5 @@
 
-# Gym asv ros2
+# Gym asv ros2: A ROS2-based Gymnasium Environment for ASV Simulation and training
 
 ## Requirements
 
