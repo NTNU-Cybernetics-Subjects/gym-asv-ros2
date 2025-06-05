@@ -1,5 +1,6 @@
 
 import shapely
+from gym_asv_ros2.gym_asv.sensors import LidarSimulator
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
@@ -29,6 +30,11 @@ import pickle, base64
 #
 #     distance_to_goal = np.linalg.norm(goal_pos - vessel_pos)
 
+class Logger:
+
+    def __init__(self, out_file) -> None:
+        pass
+
 
 class SimulationNode(Node):
 
@@ -41,6 +47,28 @@ class SimulationNode(Node):
         ## Get Paramters
         self.declare_parameter("simulate_vessel", True)
         self.simulate_vessel = self.get_parameter("simulate_vessel").get_parameter_value().bool_value
+
+        self.declare_parameter("simulate_lidar", True)
+        self.simulate_lidar = self.get_parameter("simulate_lidar").get_parameter_value().bool_value
+
+        self.declare_parameter("number_lidar_rays", 64)
+        n_lidar_rays = self.get_parameter("number_lidar_rays").get_parameter_value().integer_value
+
+        self.declare_parameter("lidar_max_range", 30.0)
+        lidar_max_range = self.get_parameter("lidar_max_range").get_parameter_value().double_value
+
+        self.declare_parameter("number_real_lidar_rays", 512)
+        self.n_real_lidar_rays = self.get_parameter("number_real_lidar_rays").get_parameter_value().integer_value
+
+        self.logger.info(f"""
+            Loading paramters:
+                simulate_vessel: {self.simulate_vessel}
+                simulate_lidar: {self.simulate_lidar}
+                number of lidar rays: {n_lidar_rays}
+                real number of lidar rays: {self.n_real_lidar_rays}
+                lidar max range: {lidar_max_range}\
+        """
+        )
 
 
         # Publish vessel state if simulating, else subscribe to vessel state
@@ -76,11 +104,11 @@ class SimulationNode(Node):
         )
 
 
-        self.lidar_pub = self.create_publisher(
-            LaserScan,
-            "/ouster/scan",
-            1
-        )
+        # self.lidar_pub = self.create_publisher(
+        #     LaserScan,
+        #     "/ouster/scan",
+        #     1
+        # )
 
         # qos_profile = QoSProfile(depth=10)
         # qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
@@ -95,16 +123,14 @@ class SimulationNode(Node):
 
 
         # Initialize env
-        # self.env = RandomGoalWithDockObstacle(render_mode="human")
-        self.env = BaseEnvironment(render_mode=None, n_perception_features=0) # NOTE: Currently not using lidar in sim
-        # FIXME: should not hardcode number of lidar rays
-        self.env.lidar_sensor = RosLidar(30.0, 64) # pyright: ignore
+        self.env = BaseEnvironment(render_mode=None, n_perception_features=0) # NOTE: Do not initialize lidar yet
 
         # Action
         self.action = np.array([0.0, 0.0])
 
         simulation_frequency = 0.1
-        observation_pub_frequence = 0.01
+        state_pub_frequency = 0.01
+        lidar_pub_frequency = 0.01
         self.create_timer(simulation_frequency, self.render_callback)
 
         if self.simulate_vessel:
@@ -113,9 +139,9 @@ class SimulationNode(Node):
                 "/microampere/state_est/pos_vel_kalman",
                 1
             )
-            self.create_timer(observation_pub_frequence, self.publish_state) # FIXME: Do no set up if we are not simulation
+            self.create_timer(state_pub_frequency, self.publish_state)
         else:
-            # Set up real vessel and real Lidar
+            # Set up real vessel
             self.vessel_state_sub = self.create_subscription(
                 BoatState,
                 "/microampere/state_est/pos_vel_kalman",
@@ -124,7 +150,21 @@ class SimulationNode(Node):
             )
             self.env.vessel = RosVessel(np.array([0,0,0,0,0,0]), 1, 1)
 
-        # Set up rendering after all env hacks
+        if self.simulate_lidar:
+            self.lidar_pub = self.create_publisher(
+                LaserScan,
+                "/ouster/scan",
+                1
+            )
+            self.env.lidar_sensor = LidarSimulator(lidar_max_range, n_lidar_rays)
+            self.create_timer(lidar_pub_frequency, self.publish_lidar)
+
+        else:
+            # Set up real lidar
+            self.env.lidar_sensor = RosLidar(lidar_max_range, n_lidar_rays)
+
+
+        # Set up rendering after choosing the Lidar- and vessel modules
         self.env.render_mode = "human"
         self.env.viewer = Visualizer(1000, 1000, headless=False)
         self.env.init_visualization()
@@ -167,9 +207,11 @@ class SimulationNode(Node):
 
 
     def agent_info_sub_callback(self, msg: RlLogMessage):
-        """Update visuals according to the log message from the agent,
-            Currently only updates the lidar observation."""
+        """Update visuals according to the log message from the agent"""
 
+        # NOTE: does only support lidar visuals per now, therefore return if simulating lidar
+        if self.simulate_lidar:
+            return
 
         observation = msg.observation
         lidar_scan = np.array(observation[5::]) * self.env.lidar_sensor.max_range
@@ -226,6 +268,7 @@ class SimulationNode(Node):
     def render_callback(self):
         """Render a frame. """
         
+        # Reusing the env.step function since it handels vessel and lidar sim
         observation, reward, done, truncated, info = self.env.step(self.action)
         # self.action[0], self.action[1] = 0.0, 0.0 # Reset action when we have used it
         self.last_observation = observation
@@ -252,6 +295,31 @@ class SimulationNode(Node):
             yaw_r=sim_state[5]
         )
         self.vessel_state_pub.publish(sim_state_msg)
+
+    def publish_lidar(self):
+        """Mimic the real lidar scan"""
+
+        lidar_scan = self.env.lidar_sensor.last_scan
+
+        # Updscale the scan to match the real lidar
+        res = int( self.n_real_lidar_rays/self.env.lidar_sensor.num_rays )
+        upscaled_scan = np.repeat(lidar_scan[:, np.newaxis], res, axis=1).flatten()
+        mimic_real_scan = upscaled_scan[::-1] # real scan is reversed 
+
+        angle_range = np.array([-np.pi, np.pi])
+        angle_inc = ( angle_range[1] - angle_range[0] )/self.n_real_lidar_rays
+
+        lidar_scan_msg = LaserScan(
+            angle_min=angle_range[0],
+            angle_max=angle_range[1],
+            angle_increment=angle_inc,
+            range_min=0.0,
+            range_max=self.env.lidar_sensor.max_range,
+            ranges=mimic_real_scan.tolist()
+        )
+        self.lidar_pub.publish(lidar_scan_msg)
+
+        
 
     def vessel_state_callback(self, msg: BoatState):
         # Update vessel state from msg
