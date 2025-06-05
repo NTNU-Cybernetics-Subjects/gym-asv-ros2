@@ -23,12 +23,6 @@ from gym_asv_ros2.ros.ros_helpers import RosLidar, RosVessel
 
 import pickle, base64
 
-# def add_a_line_of_sigth_obstalce(vessel_pos, goal_pos, goal_angle):
-#
-#
-#     los = np.arctan2(goal_pos[2], goal_pos[1])
-#
-#     distance_to_goal = np.linalg.norm(goal_pos - vessel_pos)
 
 class Logger:
 
@@ -171,12 +165,18 @@ class SimulationNode(Node):
 
         self.env.reset()
         self.env.render()
+        self.setup_obs()
 
         self.logger.info(f"Node Initialized. Simulate vessel: {self.simulate_vessel}")
 
 
     def __del__(self):
         self.env.close()
+
+    def setup_obs(self):
+
+        obst = CircularEntity(np.array([10.0,10.0 ]), 1)
+        self.env.add_obstacle(obst)
 
 
     # def lidar_sub_callback(self, msg: LaserScan):
