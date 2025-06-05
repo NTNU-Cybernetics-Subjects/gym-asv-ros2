@@ -60,7 +60,7 @@ class BaseEnvironment(gym.Env):
             list(self.vessel.boundary.exterior.coords),
             position=np.array([20,0]),
             angle=0.0,
-            color=(50,205,50)
+            color=(50,180,50)
         )
 
         self.obstacles = []
@@ -115,16 +115,10 @@ class BaseEnvironment(gym.Env):
 
 
     def init_visualization(self):
-        """Initialize all the visual objects used for drawing."""
+        """Initialize all the visual objects used for drawing. (The order
+        objects are drawn are determined on the order they are initialized)"""
+
         self.viewer.add_backround(BG_PMG_PATH)
-        self.viewer.add_agent(self.vessel.boundary)
-
-        for obst in self.obstacles:
-            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-
-        # Init the dock
-        self.goal.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
-        
 
         # Init lidar Visuals
         if isinstance(self.lidar_sensor, SectorLidar):
@@ -138,6 +132,16 @@ class BaseEnvironment(gym.Env):
             for ray_line in self.lidar_sensor._ray_lines: # pyright: ignore
                 ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
                 ray_line.pyglet_shape.opacity = 64
+
+        self.viewer.add_agent(self.vessel.boundary)
+
+        for obst in self.obstacles:
+            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+        # Init the dock
+        self.goal.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
+
+
 
         print("[env] Visualizatin intialized.")
 
@@ -673,7 +677,7 @@ class DpEnv(BaseEnvironment):
         self.set_goal(self.vessel.position, self.vessel.heading)
 
         self.obstacles.clear()
-        self.add_walls()
+        # self.add_walls()
 
     def set_goal(self, position, heading):
 
