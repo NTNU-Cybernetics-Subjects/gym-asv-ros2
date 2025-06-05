@@ -42,10 +42,15 @@ class LidarSimulator:
         # self.angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays)
         angles = np.linspace(self.angle_range[0], self.angle_range[1], self.num_rays, endpoint=False) # TODO: handle dupicated angle if we are going around somehow [0, 2*np.pi]
         self.angles = geom_utils.princip(angles)
-        self._ray_lines = [ LineEntity(np.array([0.0,0.0]), np.array([0.0, 0.0]), color=(255,255,0)) for _ in range(self.num_rays)]
+        self.visual_normal_color = (120, 238, 120)
+        self.visual_hit_color = (200, 0, 0 )
+        self._ray_lines = [ LineEntity(np.array([0.0,0.0]), np.array([0.0, 0.0]), color=self.visual_normal_color) for _ in range(self.num_rays)]
+
+        # Initialize scan cache
+        self.last_scan = np.full((self.num_rays, ), self.max_range)
 
 
-    def update_ray_line(self, i, start_point: shapely.Point | None = None, end_point: shapely.Point | None = None):
+    def update_ray_line(self, i, start_point: shapely.Point | None = None, end_point: shapely.Point | None = None, hitting_object: bool = False):
         
         update = False
         if start_point:
@@ -56,9 +61,11 @@ class LidarSimulator:
             self._ray_lines[i].end_position = np.array(*end_point.coords)
             update = True
 
+
         if update:
             # Boundary object is immutable, need to calculate again when it changes
             self._ray_lines[i].init_boundary()
+            self._ray_lines[i].color = self.visual_hit_color if hitting_object else self.visual_normal_color
 
 
     # FIXME: consider write with numpy logic to optimize running time.
@@ -102,10 +109,13 @@ class LidarSimulator:
 
                 else:
                     print(f"[Lidar.sens()] intersection object not supported: {intersection}")
-                  
-            self.update_ray_line(i, end_point=current_closet_point)
+                   
             lidar_readings[i] = start_point.distance(current_closet_point)
+            ray_hitting_object = lidar_readings[i] < ( self.max_range - 0.1) # -0.1 due to numerical noise
+            self.update_ray_line(i, end_point=current_closet_point, hitting_object=ray_hitting_object)
 
+        # cache lidar readings
+        self.last_scan = lidar_readings
         return lidar_readings
 
 
@@ -244,7 +254,7 @@ if __name__ == "__main__":
 
         sector_lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
         readings = sector_lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
-        print(readings)
+        # print(readings)
 
         for s in sector_lidar.sector_objects:
             s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
