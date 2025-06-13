@@ -12,7 +12,7 @@ import stable_baselines3.common.logger as sb3_logger
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from gymnasium.wrappers import RecordVideo
 
-from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, RandomGoalWithDockObstacle
+from gym_asv_ros2.gym_asv.environment import RandomGoalBlindEnv, RandomGoalWithDockObstacle, DpEnv
 from gym_asv_ros2.gym_asv.environment import play as play_env
 
 # from stable_baselines3.common.callbacks import BaseCallback
@@ -31,6 +31,8 @@ def make_env_subproc(render_mode=None):
     def _init():
         # env = RandomGoalRandomObstEnv(render_mode)
         env = RandomGoalWithDockObstacle(render_mode, n_perception_features=64)
+        # env = RandomGoalWithDockObstacle(render_mode, n_perception_features=41)
+        # env = DpEnv(render_mode, n_perception_features=64)
         # env = RandomGoalBlindEnv(render_mode)
         return env
 
@@ -140,6 +142,53 @@ def enjoy(agent_file: str, video_folder: str):
             env.render()
 
 
+def test(agent_file: str, n_trails: int = 100):
+
+    env_func = make_env_subproc(render_mode=None)
+    # env = RecordVideo(env_func(), video_folder, episode_trigger=lambda t: True)
+    env  = env_func()
+    env.test_mode = True
+    env.init_level = env.level1
+    model = PPO.load(agent_file, env=env)
+
+    # listner = KeyboardListner()
+    # listner.start_listner()
+
+    # run = True
+    sucess = 0
+    fail = 0
+    timed_out = 0
+    epsiode_nr = 0
+    # while run:
+    for episode in range(n_trails):
+        obs, _ = env.reset()
+        done = False
+
+        while not done:
+            action, _states = model.predict(obs, deterministic=False)
+            obs, reward, termination, truncated, info = env.step(action)
+            done = termination or truncated
+
+        print(".", end=None)
+        # Statistics
+        if info["reached_goal"]:
+            sucess += 1
+        elif info["collision"]:
+            fail += 1
+        else:
+            timed_out += 1
+
+    print(f"""episodes: {n_trails},
+sucess: {sucess}
+collided: {fail}
+timed_out: {timed_out}""")
+
+
+
+
+
+
+
 # def optimize_hyperparams():
 #     def evaluate_model(model, env, n_eval_episodes=5):
 #         rewards = []
@@ -192,7 +241,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "mode", help="TODO", choices=["enjoy", "train", "play", "hyperparameter_serach"]
+        "mode", help="TODO", choices=["enjoy", "train", "play", "test"]
     )
     parser.add_argument("--logid", help="TOOD", default=time_stamp)
     parser.add_argument("--agent", help="TODO", default="")
@@ -205,7 +254,8 @@ if __name__ == "__main__":
     # else:
     # file_storage = FileStorage("raw_lidar_training/lidar_raw_256_128_64", args.logid)
     # file_storage = FileStorage("raw_lidar_training", args.logid)
-    file_storage = FileStorage("idun_training", args.logid)
+    # file_storage = FileStorage("idun_training", args.logid)
+    file_storage = FileStorage("raw_lidar_training_wrong_obs_init", args.logid)
     # file_storage = FileStorage("training", args.logid)
     # file_storage = FileStorage("blind_agent_training", args.logid)
 
@@ -236,8 +286,23 @@ if __name__ == "__main__":
     elif args.mode == "play":
         play_env(make_env_subproc(render_mode="human")())
 
-    elif args.mode == "hyperparameter_serach":
-        optimize_hyperparams()
+    elif args.mode == "test":
+        agents_sub_folder = [dir.name for dir in file_storage.agents.iterdir() if ".zip" not in dir.name]
+        agents_sub_folder.append("main")
+        folder_choise = file_storage.content_picker(agents_sub_folder)
+
+        sub_agents_path = "" if folder_choise == "main" else folder_choise
+
+        agent_path = file_storage.agent_picker(args.agent, sub_agents_path)
+        video_path = str(file_storage.videos / time_stamp)
+
+        test(agent_path, 100)
+
+
+
+
+    # elif args.mode == "hyperparameter_serach":
+    #     optimize_hyperparams()
 
     # elif args.mode == "play":
     #     play()
