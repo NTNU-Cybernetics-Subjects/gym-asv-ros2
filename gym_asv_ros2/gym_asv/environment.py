@@ -27,10 +27,12 @@ install_rich_traceback()
 class BaseEnvironment(gym.Env):
     metadata = {"render_modes": [None, "human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render_mode=None, n_perception_features: int = 0, *args, **kwargs) -> None:
+    def __init__(self, render_mode=None, n_perception_features: int = 0, wrong_obs_init = False, *args, **kwargs) -> None:
         # Set render mode if render_mode not in self.metadata["render_modes"]: raise AttributeError(f"{render_mode} is not one of the avaliable render_modes: {self.metadata['render_modes']}")
         self.render_mode = render_mode
 
+        self.wrong_obs_init = wrong_obs_init
+        
         # Metadata
         self.episode = 0
         self.total_t_steps = 0
@@ -67,17 +69,30 @@ class BaseEnvironment(gym.Env):
 
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float64)
 
-        self.observation_space = gym.spaces.Box(
-            low = np.array([
-                -2.0, -0.3, -np.pi, -50, -np.pi,
-                *[0.0 for _ in range(self.n_perception_features)]
-            ]),
-            high = np.array([
-                3.0, 0.3, np.pi, 50, np.pi,
-                *[1.0 for _ in range(self.n_perception_features)]
-            ]),
-            dtype=np.float64
-        )
+        if self.wrong_obs_init:
+            self.observation_space = gym.spaces.Box(
+                low = np.array([
+                    -2.0, -0.3, -np.pi, -50, -np.pi,
+                    *[0.0 for _ in range(self.n_perception_features)]
+                ]),
+                high = np.array([
+                    3.0, 0.3, np.pi, 50, np.pi,
+                    *[0.0 for _ in range(self.n_perception_features)]
+                ]),
+                dtype=np.float64
+            )
+        else:
+            self.observation_space = gym.spaces.Box(
+                low = np.array([
+                    -2.0, -0.3, -np.pi, -50, -np.pi,
+                    *[0.0 for _ in range(self.n_perception_features)]
+                ]),
+                high = np.array([
+                    3.0, 0.3, np.pi, 50, np.pi,
+                    *[1.0 for _ in range(self.n_perception_features)]
+                ]),
+                dtype=np.float64
+            )
 
         self._info = {}
         self.episode_summary = {}
@@ -495,7 +510,7 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level1
+        self.init_level = self.level3
         self.init_level(False)
         self.test_mode = False
 
