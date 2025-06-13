@@ -54,25 +54,26 @@ class RosLidar(LidarSimulator):
         self.last_lidar_scan = np.full((num_rays,), max_range)
 
 
-    # def index_interpolate_scan(self, msg: LaserScan):
+    def index_interpolate_scan(self, msg: LaserScan):
     #
     #     # min_angle = msg.angle_min
     #     # max_angle = msg.angle_max
     #     # angle_increment = msg.angle_increment
     #
-    #     raw_scan = np.array(msg.ranges)
-    #     n_scans = len(raw_scan)
-    #     # shited_raw_scan = np.roll(raw_scan, -int(n_scans/2))
-    #
-    #     # reversed_scan = raw_scan[::-1]
-    #
-    #     orig_idx = np.arange(n_scans)
-    #     new_idx = np.linspace(0, n_scans -1, self.num_rays)
-    #
-    #     reduced_scan = np.interp(new_idx, orig_idx, raw_scan)
-    #     reduced_scan = np.clip(reduced_scan, 0.0, 30.0)
-    #
-    #     self.last_lidar_scan = reduced_scan
+        raw_scan = np.array(msg.ranges)[::-1]
+        n_scans = len(raw_scan)
+        
+        # Set zero readings to NaN
+        raw_scan[raw_scan <= msg.range_min] = np.nan
+        raw_scan[raw_scan >= msg.range_max] = np.nan
+
+        orig_idx = np.arange(n_scans)
+        new_idx = np.linspace(0, n_scans -1, self.num_rays)
+
+        reduced_scan = np.interp(new_idx, orig_idx, raw_scan)
+        reduced_scan = np.clip(reduced_scan, 0.0, 30.0)
+
+        self.last_lidar_scan = reduced_scan
 
     def min_pooling_scan(self, msg: LaserScan):
 
@@ -114,6 +115,24 @@ class RosLidar(LidarSimulator):
         # processed_scan = mins
 
         self.last_lidar_scan = clipped_processed_scan
+
+    def scan_to_ned_xy(self, x: float, y: float, heading: float, scan: np.ndarray | None = None, filter: float = 1.0):
+
+        max_range = self.max_range * filter
+        if not scan:
+            scan = self.last_lidar_scan
+        scan[scan >= max_range] = np.nan # # pyright: ignore
+
+        # print(lidar_scan)
+        angles = self.angles
+
+        x_b = ( np.cos(angles) * scan )
+        y_b = ( np.sin(angles) * scan )
+
+        x_ned = x + ( np.cos(heading) * x_b - np.sin(heading) * y_b )
+        y_ned = y + ( np.sin(heading) * x_b + np.cos(heading) * y_b )
+
+        return x_ned, y_ned
 
     def sense(self, *args):
         """Returns the last lidar scan that is proceesed."""
