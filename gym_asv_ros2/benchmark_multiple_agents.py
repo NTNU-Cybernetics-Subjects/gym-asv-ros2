@@ -22,6 +22,7 @@ from gym_asv_ros2.gym_asv.utils.manual_action_input import KeyboardListner
 from gym_asv_ros2.gym_asv.network.radarCNN import PerceptionNavigationExtractor
 from gym_asv_ros2.gym_asv.utils.timer import Timer
 import json
+import sys
 
 # Better debugging
 from rich.traceback import install as install_rich_traceback
@@ -92,6 +93,7 @@ def test(agent_file: str, n_trails: int = 100, n_perception_features=64, wrong_o
 
     log_filename = f"./benchmark_agents/results/{agent_name}_level_{level}.txt"
     out_info = {
+        "episodes": n_trails,
         "sucess": sucess,
         "collision": fail,
         "timed_out": timed_out
@@ -100,7 +102,8 @@ def test(agent_file: str, n_trails: int = 100, n_perception_features=64, wrong_o
         json.dump(out_info, f)
 
 trails = 100
-agent_config = ("./benchmark_agents/lidar_n64_network_2x256.zip", trails, 64, False)
+
+# agent_config = ("./benchmark_agents/lidar_n64_network_2x256.zip", trails, 64, False)
 # agent_config = ("./benchmark_agents/lidar_n41_network_2x128_level3.zip", trails, 41, False)
 #
 # agent_config = ( "./benchmark_agents/network_sizes/lidar_n41_network_256_128_64.zip", trails, 41, True)
@@ -108,7 +111,19 @@ agent_config = ("./benchmark_agents/lidar_n64_network_2x256.zip", trails, 64, Fa
 # agent_config = ( "./benchmark_agents/network_sizes/lidar_n41_network_2x256.zip", trails, 41, True )
 # agent_config = ( "./benchmark_agents/network_sizes/lidar_n41_network_3x128.zip", trails, 41, True)
 
+agent_configs = [
+ ("./benchmark_agents/lidar_n64_network_2x256.zip", trails, 64, False),
+ ("./benchmark_agents/lidar_n41_network_2x128_level3.zip", trails, 41, False),
+ ( "./benchmark_agents/network_sizes/lidar_n41_network_256_128_64.zip", trails, 41, True),
+ ( "./benchmark_agents/network_sizes/lidar_n41_network_2x128_2.zip", trails, 41, True),
+ ( "./benchmark_agents/network_sizes/lidar_n41_network_2x256.zip", trails, 41, True ),
+ ( "./benchmark_agents/network_sizes/lidar_n41_network_3x128.zip", trails, 41, True),
+
+]
+
 if __name__ == "__main__":
+
     level = 1
-    test(*agent_config, level)
-    # test(agent_path, 100, 64, False, 1)
+    for config in agent_configs:
+        test(*config, level)
+
