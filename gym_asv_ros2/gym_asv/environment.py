@@ -133,6 +133,7 @@ class BaseEnvironment(gym.Env):
                 ray_line.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
                 ray_line.pyglet_shape.opacity = 64
 
+
         self.viewer.add_agent(self.vessel.boundary)
 
         for obst in self.obstacles:
@@ -494,13 +495,14 @@ class RandomGoalWithDockObstacle(BaseEnvironment):
 
         # self.goal.position = np.array([0, -10])
         # self.goal.angle = -np.pi/4
-        self.init_level = self.level3
+        self.init_level = self.level1
         self.init_level(False)
+        self.test_mode = False
 
     def _setup(self):
         reached_goal = self.episode_summary["reached_goal"] if "reached_goal" in self.episode_summary.keys() else False
 
-        if reached_goal:
+        if reached_goal or self.test_mode:
             self.obstacles.clear()
             # self.level1()
             # self.level2()
@@ -727,6 +729,11 @@ class DpEnv(BaseEnvironment):
     
 
 ### -- debugging ---
+# def print_obstacles(obstacles: Sequence[BaseEntity]):
+#
+#     for obst in obstacles:
+#         print(obstacles.)
+
 def play(env):
     env.reset()
     env.render()
