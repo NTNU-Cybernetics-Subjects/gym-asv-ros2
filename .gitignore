@@ -5,3 +5,4 @@ gym_asv_ros2/test*.py
 **training
 pyrightconfig.json
 raw_lidar_training_wrong_obs_init
+figures
