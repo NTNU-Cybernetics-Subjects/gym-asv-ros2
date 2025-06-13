@@ -21,6 +21,7 @@ class BaseEntity:
 
         self._boundary: shapely.Geometry
         self._pyglet_shape: pyglet.shapes.ShapeBase
+        # self._edge_pyglet_shape: pyglet.shapes.MultiLine | None = None
 
 
     @property
@@ -74,6 +75,7 @@ class CircularEntity(BaseEntity):
         self.init_boundary()
 
         self._pyglet_shape: pyglet.shapes.Circle
+        # self._edge_pyglet_shape = None
 
     def init_boundary(self) -> None:
         full_circle = shapely.geometry.Point(*self.position).buffer(self.radius)
@@ -113,6 +115,7 @@ class PolygonEntity(BaseEntity):
         self._boundary: shapely.geometry.Polygon
         self.init_boundary()
         self._pyglet_shape: pyglet.shapes.Polygon
+        # self._edge_pyglet_shape = None
 
     def init_boundary(self) -> None:
         origo_boundary = shapely.geometry.Polygon(self._vertecies)
@@ -147,6 +150,22 @@ class PolygonEntity(BaseEntity):
         self._pyglet_shape.position = (self.position[1], self.position[0])
         self._pyglet_shape.rotation = np.rad2deg(self.angle)
 
+    # def draw_edge(self, batch, color: tuple = (1, 1, 1)):
+    #
+    #     shape_coords = self._pyglet_shape._coordinates
+    #     # self._pyglet_shape._get_vertices
+    #     # self._edge_pyglet_shape._vertex_list
+    #
+    #     _edge_shape = pyglet.shapes.MultiLine(
+    #         *shape_coords,
+    #         color=color,
+    #         thickness=1,
+    #         batch=batch
+    #     )
+    #     scale_offset = shape_coords[0]
+    #     _edge_shape.anchor_position = (-scale_offset[0], -scale_offset[1])
+    #     _edge_shape.position = self.position[::-1].tolist()
+    #     return _edge_shape
 
     def update(self) -> None:
         pass
@@ -191,6 +210,7 @@ class LineEntity(BaseEntity):
         self._boundary: shapely.LineString
         self.init_boundary()
         self._pyglet_shape: pyglet.shapes.Line
+        # self._edge_pyglet_shape = None
 
 
     def init_boundary(self, *args, **kwargs) -> None:
@@ -205,7 +225,8 @@ class LineEntity(BaseEntity):
         self._pyglet_shape = pyglet.shapes.Line(start_position[0], start_position[1], # pyright: ignore
                                                 end_position[0], end_position[1],
                                                 batch=batch,
-                                                color=self.color
+                                                color=self.color,
+                                                thickness=2
                                                 )
 
 
@@ -224,6 +245,9 @@ class LineEntity(BaseEntity):
         screen_end_position = camera_position + ( self.end_position[::-1] * scale)
         self._pyglet_shape.x2 = screen_end_position[0]
         self._pyglet_shape.y2 = screen_end_position[1]
+
+        # Update color
+        self._pyglet_shape.color = self.color
 
 
 if __name__ == "__main__":
