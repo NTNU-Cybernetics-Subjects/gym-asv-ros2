@@ -232,60 +232,62 @@ class SectorLidar:
 
 
 if __name__ == "__main__":
-    obst1 = CircularEntity(np.array([10,10]), 1)
-    obst2 = RectangularEntity(np.array([10, 0]), 1,1,0)
+    obst1 = CircularEntity(np.array([10,10]), 2)
+    obst2 = RectangularEntity(np.array([10, -10]), 6.5, 1, -np.pi/4)
+    obst3 = CircularEntity(np.array([-20, -10]), 4)
     # obst2 = CircularEntity(np.array([0,10]), 1)
 
-    lidar = LidarSimulator(30, 81)
-    sector_lidar = SectorLidar(20)
+    lidar = LidarSimulator(30.0, 64)
+    # sector_lidar = SectorLidar(20)
 
-    game_test = TestCase([obst1, obst2])
+    game_test = TestCase()
+    game_test.add_obstacles([obst1, obst2, obst3])
 
-    pyglet_lines = []
+    # print()
+    # for i, obst in enumerate(game_test.obstacles):
+    #     print(i, obst.boundary.exterior.xy)
+    # print()
 
-    def setup_sectorLidar():
-        sector_lidar.configure_sectors()
-        for s in sector_lidar.sector_objects:
-            s.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
-            # s.pyglet_shape.visible = False
-        # lidar.sector_objects[2].pyglet_shape.visible = True
+    # pyglet_lines = []
 
-    def update_sectorLidar():
-
-        sector_lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
-        readings = sector_lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
-        # print(readings)
-
-        for s in sector_lidar.sector_objects:
-            s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
+    # def setup_sectorLidar():
+    #     sector_lidar.configure_sectors()
+    #     for s in sector_lidar.sector_objects:
+    #         s.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
+    #         # s.pyglet_shape.visible = False
+    #     # lidar.sector_objects[2].pyglet_shape.visible = True
+    #
+    # def update_sectorLidar():
+    #
+    #     sector_lidar.update_sectors(game_test.vessel.position, game_test.vessel.heading)
+    #     readings = sector_lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
+    #     # print(readings)
+    #
+    #     for s in sector_lidar.sector_objects:
+    #         s.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
         
 
     def setup_lidar():
         for ray_line in lidar._ray_lines:
-            # print(f"initializing ray_lines {ray_line}")
+            print(f"initializing ray_lines {ray_line}")
             ray_line.init_pyglet_shape(game_test.viewer.pixels_per_unit, game_test.viewer.batch)
             # ray_line.pyglet_shape.visible = False
 
 
 
     def update_lidar():
-        lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
-        cLidar_readings = lidar.cSense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
-        print(cLidar_readings)
 
+        lidar_readings = lidar.sense(game_test.vessel.position, game_test.vessel.heading, game_test.obstacles)
         # Update lidar visualization
         for ray_line in lidar._ray_lines:
             ray_line.update_pyglet_position(game_test.viewer.camera_position, game_test.viewer.pixels_per_unit)
 
-            # Only draw the rays that are hitting something
-            # visible = False
-            # if ray_line.boundary.length < ( lidar.max_range -0.1):
-            #     visible = True
-            # ray_line.pyglet_shape.visible = visible
-        
+
+        print("Reading", lidar_readings, "\n")
+
 
 
     # game_test.game_loop(setup=setup_lidar,update=update_lidar)
-    game_test.game_loop(setup=setup_lidar,update=update_lidar)
+    game_test.game_loop(setup=setup_lidar, update=update_lidar)
 
 
