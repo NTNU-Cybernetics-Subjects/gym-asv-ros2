@@ -17,8 +17,9 @@ install_rich_traceback()
 
 ROOT_DIR = Path(__file__).resolve().parent
 # BG_PMG_PATH = ROOT_DIR.joinpath("graphics/bg.png")
-BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
-BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/ChatGPT_bg.png") # FIXME: temp hardcoded because of ros import
+# BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/bg.png") # FIXME: temp hardcoded because of ros import
+# BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/ChatGPT_bg.png") # FIXME: temp hardcoded because of ros import
+BG_PMG_PATH = Path("/home/hurodor/Dev/blue_boat_ws/src/gym_asv_ros2/gym_asv_ros2/gym_asv/graphics/chatgpt_bg5.png") # FIXME: temp hardcoded because of ros import
 
 class Visualizer:
     def __init__(self, window_width, window_height, headless=False) -> None:
@@ -197,17 +198,21 @@ class TestCase:
         pass
 
     def add_obstacles(self, obstacles: list[BaseEntity]):
+        for obst in obstacles:
+            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
         self.obstacles.extend(obstacles)
 
     def _init_base(self):
-        bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
+        # bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
 
-        self.viewer.add_backround(bg_img_path)
+        # self.viewer.add_backround(BG_PMG_PATH)
+
         self.viewer.add_agent(self.vessel.boundary)
+        
         self.viewer.update_agent(self.vessel.position, self.vessel.heading)
 
         for obst in self.obstacles:
-            print(f"[Test Game] initing pyglet for obeject: {obst}")
+            obst.init_pyglet_shape(self.viewer.pixels_per_unit, self.viewer.batch)
     
     def game_loop(self, setup: Callable | None = None, update: Callable | None = None):
 
@@ -229,7 +234,7 @@ class TestCase:
 
             self.viewer.update_camerea_position(self.vessel.position)
             self.viewer.update_agent(self.vessel.position, self.vessel.heading)
-            self.viewer.update_background()
+            # self.viewer.update_background()
 
             for obst in self.obstacles:
                 obst.update()
@@ -284,80 +289,3 @@ if __name__ == "__main__":
 
 
     game.game_loop(setup, update)
-
-
-    # v = Visualizer(1000, 1000)
-    #
-    # # vessel = Vessel(np.array([0, 0, np.pi/2 - np.pi/4, 0, 0, 0]), 1, 1)
-    # vessel = Vessel(np.array([0, 0, 0, 0, 0, 0]), 1, 1)
-    #
-    # bg_img_path = Path(__file__).resolve().parent.joinpath("graphics/bg.png")
-    #
-    # v.add_backround(bg_img_path)
-    # v.add_agent(vessel.boundary)
-    # v.update_agent(vessel.position, vessel.heading)
-    #
-    # # Add obstacle:
-    # obst = CircularEntity(np.array([0,10]), 1, color=(27, 127,0))
-    # obst.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    #
-    # # add polygon and points in all vertecies to check if the vizalization are the same as backend
-    # # pol, pol_origo, pol_vertecies = add_test_polygon()
-    # # pol.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # # pol_origo.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # # for ver in pol_vertecies:
-    # #     ver.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # # print(f"Added polygon with position: {pol.position} vertecies: {list( pol._boundary.exterior.coords )}")
-    #
-    # # add line:
-    # # line = LineEntity(np.array([2,2]), np.array([2,10]))
-    # # line.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # # line_start_point = CircularEntity(line.position, 0.1, color=(255,0,0))
-    # # line_start_point.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    # # line = pyglet.shapes.Line(0,0, 20, 20, batch=v.batch, thickness=3)
-    #
-    # # Add rectangle 
-    # # rect = RectangularEntity(np.array([10.0, 0.0]), 1.0,1.0, np.pi/4)
-    # # rect.init_pyglet_shape(v.pixels_per_unit, v.batch)
-    #
-    # # arc = pyglet.shapes.Arc(-10,10, 2, batch=v.batch)
-    #
-    # listner = KeyboardListner()
-    # listner.start_listner()
-    # v.update_screen()
-    #
-    # t = 0
-    # while True:
-    #     if listner.quit:
-    #         break
-    #
-    #     vessel.step(listner.action, 0.2)
-    #
-    #     v.update_camerea_position(vessel.position)
-    #     v.update_agent(vessel.position, vessel.heading)
-    #     v.update_background()
-    #
-    #     obst.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     circle_visible = v.shape_in_window(obst.pyglet_shape)
-    #     # print(f"obst is {circle_visible}, draw pos is: {obst.pyglet_shape.position}")
-    #
-    #     # pol.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     # pol_origo.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     # for ver in pol_vertecies:
-    #     #     ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     #
-    #     # line.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     # line_start_point.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #     #
-    #     # rect.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #
-    #     # for ver in agent_vertecies:
-    #         # ver.update_pyglet_position(v.camera_position, v.pixels_per_unit)
-    #
-    #     v.update_screen()
-    #     # test = v.get_rbg_array()
-    #     # print(test)
-    #     t +=1
-    #     # print(f"vessel: {vessel.position}, obst: {pol.position}")
-    #
-    # v.close()
